@@ -9,4 +9,5 @@ class RouteNames {
   static const otp = '/otp';
   static const forgotPassword = '/forgot-password';
   static const resetPassword = '/reset-password';
+  static const editProfile = '/edit-profile';
 }

@@ -15,7 +15,7 @@ from .utils import send_otp_email
 from .serializers import (
     RegisterSerializer, VerifyOTPSerializer, 
     ForgotPasswordSerializer, ResetPasswordSerializer, CustomTokenObtainPairSerializer, UserMeSerializer, GoogleAuthSerializer,
-    FacebookAuthSerializer
+    FacebookAuthSerializer,ProfileSerializer, UpdateProfileSerializer
 )
 
 User = get_user_model()
@@ -178,7 +178,7 @@ class FacebookAuthView(APIView):
                 username = f"{base_username}{counter}"
                 counter += 1
             fallback_email = email if email else f"{facebook_id}@facebook.local"
-
+            
             user = User.objects.create(
                 email=email if email else fallback_email,
                 username=username,
@@ -206,14 +206,7 @@ class FacebookAuthView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-        
-class MeView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        serializer = UserMeSerializer(request.user)
-        return Response(serializer.data)
-    
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -298,3 +291,33 @@ class ResetPasswordView(APIView):
         user.save()
 
         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
+    
+    
+# Section: Profile
+
+
+
+
+
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = ProfileSerializer(request.user)
+        return Response(serializer.data)
+
+
+class UpdateProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        serializer = UpdateProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=False,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        response_serializer = ProfileSerializer(request.user)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
