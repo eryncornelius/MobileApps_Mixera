@@ -2,7 +2,8 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     RegisterView, VerifyOTPView, 
-    ForgotPasswordView, ResetPasswordView, MeView, CustomLoginView, GoogleAuthView, FacebookAuthView, UpdateProfileView
+    ForgotPasswordView, ResetPasswordView, MeView, CustomLoginView, GoogleAuthView, FacebookAuthView, 
+    UpdateProfileView
 )
 
 urlpatterns = [
