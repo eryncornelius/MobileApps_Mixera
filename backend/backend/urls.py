@@ -4,6 +4,11 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # ini yang penting
+    # User API (ini yang penting)
     path('api/users/', include('users.urls')),
+    
+
+    # DEBUGGING PURPOSE
+    # Wardrobe API
+    path('api/wardrobe/', include('wardrobe.urls')),
 ]
