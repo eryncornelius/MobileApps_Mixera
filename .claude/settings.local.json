@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py makemigrations users)",
+      "Bash(flutter analyze:*)",
+      "Bash(python -c \"from payments.views import CardChargeView, SavedCardListView, SavedCardDetailView, PaymentMethodsView; print\\(''imports OK''\\)\")",
+      "Bash(python manage.py check)"
+    ]
+  }
+}

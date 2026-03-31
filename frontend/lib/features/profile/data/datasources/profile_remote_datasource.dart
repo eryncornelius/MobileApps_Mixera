@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/storage/token_storage.dart';
 import '../models/profile_model.dart';
+import '../models/address_model.dart';
+import '../models/notification_settings_model.dart';
 
 class ProfileRemoteDatasource {
   ProfileRemoteDatasource()
@@ -78,4 +80,153 @@ class ProfileRemoteDatasource {
       throw Exception(_handleError(e));
     }
   }
+  Future<void> changePassword({
+  required String currentPassword,
+  required String newPassword,
+  }) async {
+    try {
+      await dio.post(
+        '/change-password/',
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+        options: await _authorizedOptions(),
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+  Future<List<AddressModel>> getAddresses() async {
+  try {
+    final response = await dio.get(
+      '/addresses/',
+      options: await _authorizedOptions(),
+    );
+
+    final data = List<Map<String, dynamic>>.from(response.data);
+    return data.map(AddressModel.fromJson).toList();
+  } on DioException catch (e) {
+    throw Exception(_handleError(e));
+  }
+}
+
+Future<AddressModel> createAddress({
+  required String label,
+  required String recipientName,
+  required String phoneNumber,
+  required String streetAddress,
+  required String city,
+  required String state,
+  required String postalCode,
+  required bool isPrimary,
+}) async {
+  try {
+    final response = await dio.post(
+      '/addresses/',
+      data: {
+        'label': label,
+        'recipient_name': recipientName,
+        'phone_number': phoneNumber,
+        'street_address': streetAddress,
+        'city': city,
+        'state': state,
+        'postal_code': postalCode,
+        'is_primary': isPrimary,
+      },
+      options: await _authorizedOptions(),
+    );
+
+    return AddressModel.fromJson(
+      Map<String, dynamic>.from(response.data),
+    );
+  } on DioException catch (e) {
+    throw Exception(_handleError(e));
+  }
+}
+
+Future<AddressModel> updateAddress({
+  required int id,
+  required String label,
+  required String recipientName,
+  required String phoneNumber,
+  required String streetAddress,
+  required String city,
+  required String state,
+  required String postalCode,
+  required bool isPrimary,
+}) async {
+  try {
+    final response = await dio.put(
+      '/addresses/$id/',
+      data: {
+        'label': label,
+        'recipient_name': recipientName,
+        'phone_number': phoneNumber,
+        'street_address': streetAddress,
+        'city': city,
+        'state': state,
+        'postal_code': postalCode,
+        'is_primary': isPrimary,
+      },
+      options: await _authorizedOptions(),
+    );
+
+    return AddressModel.fromJson(
+      Map<String, dynamic>.from(response.data),
+    );
+  } on DioException catch (e) {
+    throw Exception(_handleError(e));
+  }
+}
+
+Future<void> deleteAddress(int id) async {
+  try {
+    await dio.delete(
+      '/addresses/$id/',
+      options: await _authorizedOptions(),
+    );
+  } on DioException catch (e) {
+    throw Exception(_handleError(e));
+  }
+}
+
+Future<NotificationSettingsModel> getNotificationSettings() async {
+  try {
+    final response = await dio.get(
+      '/notification-settings/',
+      options: await _authorizedOptions(),
+    );
+    return NotificationSettingsModel.fromJson(
+      Map<String, dynamic>.from(response.data),
+    );
+  } on DioException catch (e) {
+    throw Exception(_handleError(e));
+  }
+}
+
+Future<NotificationSettingsModel> updateNotificationSettings({
+  required bool orderUpdates,
+  required bool promotions,
+  required bool securityAlerts,
+  required bool dailyReminders,
+}) async {
+  try {
+    final response = await dio.put(
+      '/notification-settings/',
+      data: {
+        'order_updates': orderUpdates,
+        'promotions': promotions,
+        'security_alerts': securityAlerts,
+        'daily_reminders': dailyReminders,
+      },
+      options: await _authorizedOptions(),
+    );
+    return NotificationSettingsModel.fromJson(
+      Map<String, dynamic>.from(response.data),
+    );
+  } on DioException catch (e) {
+    throw Exception(_handleError(e));
+  }
+}
 }

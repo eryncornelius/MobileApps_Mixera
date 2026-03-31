@@ -13,4 +13,12 @@ class AppRoutes {
   static const forgotPassword = RouteNames.forgotPassword;
   static const otp = RouteNames.otp;
   static const resetPassword = RouteNames.resetPassword;
+  static const profile = RouteNames.profile;
+  static const editProfile = RouteNames.editProfile;
+  static const savedAddresses = RouteNames.savedAddresses;
+  static const addNewAddress = RouteNames.addNewAddress;
+  static const editAddress = RouteNames.editAddress;
+  static const changePassword = RouteNames.changePassword;
+  static const security = RouteNames.security;
+  static const notificationSettings = RouteNames.notificationSettings;
 }

@@ -22,7 +22,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
     if (!mounted) return;
 
     if (hasToken) {
-      Navigator.pushReplacementNamed(context, RouteNames.home);
+      Navigator.pushReplacementNamed(context, RouteNames.mainShell);
     } else {
       Navigator.pushReplacementNamed(context, RouteNames.login);
     }

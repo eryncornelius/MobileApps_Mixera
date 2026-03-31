@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-
+from .models import Address, NotificationSettings
 User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -110,3 +110,50 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError("Username already taken.")
         return value
+    
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=6)
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+
+        if not user.check_password(attrs["current_password"]):
+            raise serializers.ValidationError({
+                "current_password": ["Current password is incorrect."]
+            })
+
+        return attrs
+    
+# Addresses
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = (
+            "id",
+            "label",
+            "recipient_name",
+            "phone_number",
+            "street_address",
+            "city",
+            "state",
+            "postal_code",
+            "is_primary",
+            "created_at",
+            "updated_at",
+        )
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+
+        if not user.addresses.exists():
+            validated_data["is_primary"] = True
+
+        return Address.objects.create(user=user, **validated_data)
+
+
+# Notification Settings
+class NotificationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSettings
+        fields = ("order_updates", "promotions", "security_alerts", "daily_reminders")

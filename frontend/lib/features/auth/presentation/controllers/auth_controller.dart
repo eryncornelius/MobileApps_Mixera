@@ -38,13 +38,15 @@ class AuthController extends GetxController {
       }
 
       await TokenStorage.saveTokens(accessToken: access, refreshToken: refresh);
-
+      debugPrint('ACCESS TOKEN: $access');
+      debugPrint('REFRESH TOKEN: $refresh');
+      debugPrint('USER Login');
       if (!context.mounted) return;
       _showSnackbar(context, 'Login Google berhasil!', true);
 
       Navigator.pushNamedAndRemoveUntil(
         context,
-        RouteNames.home,
+        RouteNames.mainShell,
         (route) => false,
       );
     } catch (e) {
@@ -56,47 +58,56 @@ class AuthController extends GetxController {
   }
 
   Future<void> continueWithFacebook(BuildContext context) async {
-    isLoading.value = true;
-    try {
-      final LoginResult result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
-      );
+  isLoading.value = true;
 
-      if (result.status != LoginStatus.success) {
-        throw Exception(result.message ?? 'Facebook login gagal');
-      }
+  try {
+    final LoginResult result = await FacebookAuth.instance.login(
+      permissions: ['email', 'public_profile'],
+    );
 
-      final accessToken = result.accessToken?.tokenString;
-      if (accessToken == null || accessToken.isEmpty) {
-        throw Exception('Facebook access token tidak ditemukan');
-      }
 
-      final response = await _api.loginWithFacebook(accessToken);
-
-      final access = response['access'] as String?;
-      final refresh = response['refresh'] as String?;
-
-      if (access == null || refresh == null) {
-        throw Exception('Token aplikasi tidak ditemukan dari server');
-      }
-
-      await TokenStorage.saveTokens(accessToken: access, refreshToken: refresh);
-
-      if (!context.mounted) return;
-
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        RouteNames.home,
-        (route) => false,
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      _showSnackbar(context, e.toString().replaceAll('Exception: ', ''), false);
-    } finally {
-      isLoading.value = false;
+    if (result.status != LoginStatus.success) {
+      throw Exception(result.message ?? 'Facebook login gagal');
     }
-  }
 
+    final accessToken = result.accessToken?.tokenString;
+
+    if (accessToken == null || accessToken.isEmpty) {
+      throw Exception('Facebook access token tidak ditemukan');
+    }
+
+    final response = await _api.loginWithFacebook(accessToken);
+    debugPrint('FB STEP 4: backend response = $response');
+
+    final access = response['access'] as String?;
+    final refresh = response['refresh'] as String?;
+
+    if (access == null || refresh == null) {
+      throw Exception('Token aplikasi tidak ditemukan dari server');
+    }
+
+    await TokenStorage.saveTokens(accessToken: access, refreshToken: refresh);
+
+    final savedAccess = await TokenStorage.getAccessToken();
+    debugPrint('FB STEP 5: saved access = $savedAccess');
+
+    if (!context.mounted) return;
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      RouteNames.mainShell,
+      (route) => false,
+    );
+  } catch (e, st) {
+    debugPrint('FB ERROR: $e');
+    debugPrint('FB STACK: $st');
+
+    if (!context.mounted) return;
+    _showSnackbar(context, e.toString().replaceAll('Exception: ', ''), false);
+  } finally {
+    isLoading.value = false;
+  }
+}
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final usernameController = TextEditingController();
@@ -190,7 +201,7 @@ class AuthController extends GetxController {
 
       Navigator.pushNamedAndRemoveUntil(
         context,
-        RouteNames.home,
+        RouteNames.mainShell,
         (route) => false,
       );
     } catch (e) {

@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated
-from .models import OTPVerification
+from .models import OTPVerification, Address, NotificationSettings
 from django.conf import settings    
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
@@ -15,8 +15,10 @@ from .utils import send_otp_email
 from .serializers import (
     RegisterSerializer, VerifyOTPSerializer, 
     ForgotPasswordSerializer, ResetPasswordSerializer, CustomTokenObtainPairSerializer, UserMeSerializer, GoogleAuthSerializer,
-    FacebookAuthSerializer,ProfileSerializer, UpdateProfileSerializer
+    FacebookAuthSerializer,ProfileSerializer, UpdateProfileSerializer, ChangePasswordSerializer, AddressSerializer,
+    NotificationSettingsSerializer
 )
+from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 class CustomLoginView(TokenObtainPairView):
@@ -321,3 +323,89 @@ class UpdateProfileView(APIView):
 
         response_serializer = ProfileSerializer(request.user)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+    
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+
+        return Response(
+            {"detail": "Password changed successfully."},
+            status=status.HTTP_200_OK,
+        )
+        
+# Address
+class AddressListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        addresses = request.user.addresses.all()
+        serializer = AddressSerializer(addresses, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = AddressSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        address = serializer.save()
+
+        response_serializer = AddressSerializer(address)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+class AddressDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        address = get_object_or_404(Address, pk=pk, user=request.user)
+        serializer = AddressSerializer(
+            address,
+            data=request.data,
+            partial=False,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        response_serializer = AddressSerializer(address)
+        return Response(response_serializer.data)
+
+    def delete(self, request, pk):
+        address = get_object_or_404(Address, pk=pk, user=request.user)
+        was_primary = address.is_primary
+        address.delete()
+
+        if was_primary:
+            next_address = request.user.addresses.order_by("-updated_at").first()
+            if next_address:
+                next_address.is_primary = True
+                next_address.save()
+
+        return Response({"detail": "Address deleted successfully."}, status=status.HTTP_200_OK)
+
+
+# Notification Settings
+class NotificationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        settings_obj, _ = NotificationSettings.objects.get_or_create(user=request.user)
+        serializer = NotificationSettingsSerializer(settings_obj)
+        return Response(serializer.data)
+
+    def put(self, request):
+        settings_obj, _ = NotificationSettings.objects.get_or_create(user=request.user)
+        serializer = NotificationSettingsSerializer(settings_obj, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, OTPVerification
+from .models import User, OTPVerification, NotificationSettings
 
 
 @admin.register(User)
@@ -27,3 +27,7 @@ class OTPVerificationAdmin(admin.ModelAdmin):
     list_display = ('user', 'code', 'created_at', 'is_used')
     list_filter = ('is_used', 'created_at')
     search_fields = ('user__email', 'code')
+    
+@admin.register(NotificationSettings)
+class NotificationSettingsAdmin(admin.ModelAdmin):
+    list_display = ('user', 'order_updates', 'promotions', 'security_alerts', 'daily_reminders')

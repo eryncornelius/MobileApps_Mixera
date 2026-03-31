@@ -1,0 +1,409 @@
+lib
+├── app
+│   ├── app.dart
+│   ├── config
+│   │   ├── env.dart
+│   │   └── flavor.dart
+│   ├── routes
+│   │   ├── app_router.dart
+│   │   ├── app_routes.dart
+│   │   └── route_names.dart
+│   └── theme
+│       ├── app_colors.dart
+│       ├── app_radius.dart
+│       ├── app_shadows.dart
+│       ├── app_spacing.dart
+│       ├── app_text_styles.dart
+│       └── app_theme.dart
+├── core
+│   ├── constants
+│   │   ├── api_constants.dart
+│   │   ├── app_constants.dart
+│   │   ├── asset_constants.dart
+│   │   └── storage_keys.dart
+│   ├── errors
+│   │   ├── app_exception.dart
+│   │   ├── error_handler.dart
+│   │   └── failure.dart
+│   ├── network
+│   │   ├── api_client.dart
+│   │   ├── dio_client.dart
+│   │   ├── interceptors
+│   │   │   ├── auth_interceptor.dart
+│   │   │   ├── logging_interceptor.dart
+│   │   │   └── retry_interceptor.dart
+│   │   └── response_parser.dart
+│   ├── services
+│   │   ├── connectivity_service.dart
+│   │   ├── image_picker_service.dart
+│   │   ├── notification_service.dart
+│   │   └── permission_service.dart
+│   ├── storage
+│   │   ├── local_storage_service.dart
+│   │   ├── secure_storage_service.dart
+│   │   └── token_storage.dart
+│   └── utils
+│       ├── debouncer.dart
+│       ├── extensions.dart
+│       ├── formatters.dart
+│       ├── helpers.dart
+│       ├── logger.dart
+│       └── validators.dart
+├── di
+│   └── injection.dart
+├── features
+│   ├── auth
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   ├── auth_local_datasource.dart
+│   │   │   │   └── auth_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── auth_token_model.dart
+│   │   │   │   ├── forgot_password_request_model.dart
+│   │   │   │   ├── login_request_model.dart
+│   │   │   │   ├── register_request_model.dart
+│   │   │   │   ├── reset_password_request_model.dart
+│   │   │   │   └── user_model.dart
+│   │   │   └── repositories
+│   │   │       └── auth_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── entities
+│   │   │   │   └── user_entity.dart
+│   │   │   ├── repositories
+│   │   │   │   └── auth_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── forgot_password_usecase.dart
+│   │   │       ├── get_current_user_usecase.dart
+│   │   │       ├── login_usecase.dart
+│   │   │       ├── logout_usecase.dart
+│   │   │       ├── register_usecase.dart
+│   │   │       └── reset_password_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── auth_controller.dart
+│   │       ├── pages
+│   │       │   ├── auth_gate_page.dart
+│   │       │   ├── forgot_password_page.dart
+│   │       │   ├── login_page.dart
+│   │       │   ├── otp_verification_page.dart
+│   │       │   ├── register_page.dart
+│   │       │   └── reset_password_page.dart
+│   │       └── widgets
+│   │           ├── auth_header.dart
+│   │           ├── remember_me_row.dart
+│   │           └── social_login_buttons.dart
+│   ├── cart
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── cart_local_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── cart_item_model.dart
+│   │   │   │   └── cart_summary_model.dart
+│   │   │   └── repositories
+│   │   │       └── cart_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   └── cart_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── add_to_cart_usecase.dart
+│   │   │       ├── clear_cart_usecase.dart
+│   │   │       ├── get_cart_items_usecase.dart
+│   │   │       ├── remove_from_cart_usecase.dart
+│   │   │       └── update_cart_quantity_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── cart_controller.dart
+│   │       ├── pages
+│   │       │   └── cart_page.dart
+│   │       └── widgets
+│   │           ├── cart_item_tile.dart
+│   │           ├── cart_summary_section.dart
+│   │           └── checkout_button.dart
+│   ├── checkout
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── checkout_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── checkout_request_model.dart
+│   │   │   │   ├── order_model.dart
+│   │   │   │   └── payment_method_model.dart
+│   │   │   └── repositories
+│   │   │       └── checkout_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   └── checkout_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── apply_voucher_usecase.dart
+│   │   │       ├── get_payment_methods_usecase.dart
+│   │   │       └── place_order_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── checkout_controller.dart
+│   │       ├── pages
+│   │       │   ├── checkout_page.dart
+│   │       │   └── purchase_complete_page.dart
+│   │       └── widgets
+│   │           ├── address_selector.dart
+│   │           ├── order_summary_card.dart
+│   │           └── payment_method_selector.dart
+│   ├── home
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── home_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── dashboard_model.dart
+│   │   │   │   ├── quick_action_model.dart
+│   │   │   │   └── recommendation_banner_model.dart
+│   │   │   └── repositories
+│   │   │       ├── home_repository.dart
+│   │   │       └── home_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   ├── home_repositories_imp.dart
+│   │   │   │   └── home_repository.dart
+│   │   │   └── usecases
+│   │   │       └── get_dashboard_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── home_controller.dart
+│   │       ├── pages
+│   │       │   └── home_page.dart
+│   │       └── widgets
+│   │           ├── greeting_header.dart
+│   │           ├── on_sale_section.dart
+│   │           ├── quick_actions_section.dart
+│   │           ├── recommended_section.dart
+│   │           └── wardrobe_preview_section.dart
+│   ├── mix_match
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── mix_match_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── outfit_request_model.dart
+│   │   │   │   ├── outfit_result_model.dart
+│   │   │   │   └── saved_outfit_model.dart
+│   │   │   └── repositories
+│   │   │       └── mix_match_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   └── mix_match_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── generate_outfit_usecase.dart
+│   │   │       ├── get_saved_outfits_usecase.dart
+│   │   │       └── save_outfit_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── mix_match_controller.dart
+│   │       ├── pages
+│   │       │   ├── confirm_items_page.dart
+│   │       │   ├── mix_match_page.dart
+│   │       │   ├── outfit_result_page.dart
+│   │       │   ├── pick_from_wardrobe_page.dart
+│   │       │   └── saved_outfits_page.dart
+│   │       └── widgets
+│   │           ├── clothing_picker_section.dart
+│   │           ├── outfit_result_card.dart
+│   │           ├── save_outfit_button.dart
+│   │           └── selected_item_chip.dart
+│   ├── navigation
+│   │   └── presentation
+│   │       ├── pages
+│   │       │   └── main_shell_page.dart
+│   │       └── widgets
+│   │           └── app_bottom_navbar.dart
+│   ├── notifications
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── notifications_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   └── notification_item_model.dart
+│   │   │   └── repositories
+│   │   │       └── notifications_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   └── notifications_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── get_notifications_usecase.dart
+│   │   │       └── mark_notification_as_read_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── notifications_controller.dart
+│   │       ├── pages
+│   │       │   └── notifications_page.dart
+│   │       └── widgets
+│   │           └── notification_tile.dart
+│   ├── orders
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── orders_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── order_history_model.dart
+│   │   │   │   └── order_status_model.dart
+│   │   │   └── repositories
+│   │   │       └── orders_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   └── orders_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── get_orders_usecase.dart
+│   │   │       └── get_order_detail_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── orders_controller.dart
+│   │       ├── pages
+│   │       │   ├── orders_page.dart
+│   │       │   └── order_detail_page.dart
+│   │       └── widgets
+│   │           ├── order_status_chip.dart
+│   │           └── order_tile.dart
+│   ├── profile
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── profile_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── address_model.dart
+│   │   │   │   ├── notification_settings_model.dart
+│   │   │   │   ├── profile_model.dart
+│   │   │   │   └── wallet_model.dart
+│   │   │   └── repositories
+│   │   │       └── profile_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   └── profile_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── get_addresses_usecase.dart
+│   │   │       ├── get_profile_usecase.dart
+│   │   │       ├── get_wallet_usecase.dart
+│   │   │       ├── save_address_usecase.dart
+│   │   │       ├── update_notification_settings_usecase.dart
+│   │   │       └── update_profile_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── profile_controller.dart
+│   │       ├── pages
+│   │       │   ├── add_money_page.dart
+│   │       │   ├── add_new_address_page.dart
+│   │       │   ├── change_password_page.dart
+│   │       │   ├── edit_address_page.dart
+│   │       │   ├── edit_profile_page.dart
+│   │       │   ├── notifications_page.dart
+│   │       │   ├── profile_page.dart
+│   │       │   ├── saved_addresses_page.dart
+│   │       │   ├── security_page.dart
+│   │       │   └── wallet_page.dart
+│   │       └── widgets
+│   │           ├── address_card.dart
+│   │           ├── notification_toggle_tile.dart
+│   │           ├── profile_menu_tile.dart
+│   │           ├── security_option_tile.dart
+│   │           └── wallet_balance_card.dart
+│   ├── shop
+│   │   ├── data
+│   │   │   ├── datasources
+│   │   │   │   └── shop_remote_datasource.dart
+│   │   │   ├── models
+│   │   │   │   ├── category_model.dart
+│   │   │   │   ├── product_detail_model.dart
+│   │   │   │   ├── product_model.dart
+│   │   │   │   └── search_suggestion_model.dart
+│   │   │   └── repositories
+│   │   │       └── shop_repository_impl.dart
+│   │   ├── domain
+│   │   │   ├── repositories
+│   │   │   │   └── shop_repository.dart
+│   │   │   └── usecases
+│   │   │       ├── get_products_usecase.dart
+│   │   │       ├── get_product_detail_usecase.dart
+│   │   │       └── search_products_usecase.dart
+│   │   └── presentation
+│   │       ├── controllers
+│   │       │   └── shop_controller.dart
+│   │       ├── pages
+│   │       │   ├── product_detail_page.dart
+│   │       │   ├── search_page.dart
+│   │       │   └── shop_page.dart
+│   │       └── widgets
+│   │           ├── category_tabs.dart
+│   │           ├── product_grid.dart
+│   │           ├── product_image_carousel.dart
+│   │           └── search_history_section.dart
+│   ├── splash
+│   │   └── presentation
+│   │       └── pages
+│   │           └── splash_page.dart
+│   └── wardrobe
+│       ├── data
+│       │   ├── datasources
+│       │   │   ├── wardrobe_local_datasource.dart
+│       │   │   └── wardrobe_remote_datasource.dart
+│       │   ├── models
+│       │   │   ├── add_clothing_request_model.dart
+│       │   │   ├── clothing_category_model.dart
+│       │   │   └── wardrobe_item_model.dart
+│       │   └── repositories
+│       │       └── wardrobe_repository_impl.dart
+│       ├── domain
+│       │   ├── repositories
+│       │   │   └── wardrobe_repository.dart
+│       │   └── usecases
+│       │       ├── add_wardrobe_item_usecase.dart
+│       │       ├── delete_wardrobe_item_usecase.dart
+│       │       ├── get_wardrobe_items_usecase.dart
+│       │       └── update_wardrobe_item_usecase.dart
+│       └── presentation
+│           ├── controllers
+│           │   └── wardrobe_controller.dart
+│           ├── pages
+│           │   ├── add_clothing_page.dart
+│           │   ├── wardrobe_detail_page.dart
+│           │   └── wardrobe_page.dart
+│           └── widgets
+│               ├── add_clothing_bottom_sheet.dart
+│               ├── wardrobe_filter_tabs.dart
+│               └── wardrobe_grid.dart
+├── l10n
+│   └── arb
+│       ├── app_en.arb
+│       └── app_id.arb
+├── main.dart
+└── shared
+    ├── models
+    │   ├── base_response.dart
+    │   └── pagination_meta.dart
+    └── widgets
+        ├── buttons
+        │   ├── icon_button_widget.dart
+        │   ├── primary_button.dart
+        │   └── secondary_button.dart
+        ├── cards
+        │   ├── outfit_card.dart
+        │   ├── product_card.dart
+        │   ├── quick_action_card.dart
+        │   └── wardrobe_item_card.dart
+        ├── dialogs
+        │   ├── app_dialog.dart
+        │   ├── confirm_dialog.dart
+        │   └── success_dialog.dart
+        ├── inputs
+        │   ├── custom_text_field.dart
+        │   ├── otp_input_field.dart
+        │   ├── password_text_field.dart
+        │   └── search_field.dart
+        ├── layout
+        │   ├── app_scaffold.dart
+        │   ├── bottom_sheet_container.dart
+        │   ├── custom_app_bar.dart
+        │   └── section_title.dart
+        ├── loaders
+        │   ├── app_loader.dart
+        │   ├── full_screen_loader.dart
+        │   └── shimmer_loader.dart
+        ├── misc
+        │   ├── app_network_image.dart
+        │   ├── badge_widget.dart
+        │   ├── price_text.dart
+        │   └── toggle_switch_tile.dart
+        └── states
+            ├── empty_state.dart
+            ├── error_state.dart
+            └── no_internet_state.dart

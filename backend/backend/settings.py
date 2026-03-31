@@ -10,8 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+from environs import Env
 from pathlib import Path
 from dotenv import load_dotenv
+env = Env()
+env.read_env()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -29,11 +32,19 @@ FACEBOOK_APP_SECRET = os.getenv('FACEBOOK_APP_SECRET', default='')
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-8da&m*&bly3uv!%fwo!oy-lnazaws0@60$2q*q#^6k)xxp485*'
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', default='')
+MIDTRANS_SERVER_KEY = os.getenv("MIDTRANS_SERVER_KEY",default='')
+MIDTRANS_CLIENT_KEY = os.getenv("MIDTRANS_CLIENT_KEY",default='')
+MIDTRANS_MERCHANT_ID = os.getenv("MIDTRANS_MERCHANT_ID",default='')
+MIDTRANS_NOTIFICATION_URL=os.getenv("MIDTRANS_NOTIFICATION_URL",default='')
+MIDTRANS_IS_PRODUCTION = env.bool("MIDTRANS_IS_PRODUCTION", default=False)
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ["distichous-demonstratively-guillermo.ngrok-free.dev", "127.0.0.1","localhost"]
+CSRF_TRUSTED_ORIGINS = [
+    'https://distichous-demonstratively-guillermo.ngrok-free.dev',
+]
 
 # Application definition
 
@@ -49,7 +60,10 @@ INSTALLED_APPS = [
     'wardrobe',
     'users',
     'shop',
+    'cart',
     'orders',
+    'payments',
+    'wallet',
 ]
 
 MIDDLEWARE = [
