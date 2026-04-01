@@ -341,6 +341,7 @@ class AuthController extends GetxController {
     try {
       await TokenStorage.clearTokens();
       await _googleSignIn.signOut();
+      await FacebookAuth.instance.logOut();
 
       if (!context.mounted) return;
 

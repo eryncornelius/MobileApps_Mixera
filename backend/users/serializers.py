@@ -75,3 +75,38 @@ class ResetPasswordSerializer(serializers.Serializer):
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
         return data
+    
+    
+# Section : Profile
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "username",
+            "phone_number",
+            "auth_provider",
+            "is_email_verified",
+            "is_premium",
+            "premium_until",
+        )
+
+
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            "username",
+            "phone_number",
+        )
+
+    def validate_username(self, value):
+        user = self.instance
+        qs = User.objects.filter(username=value)
+        if user:
+            qs = qs.exclude(id=user.id)
+        if qs.exists():
+            raise serializers.ValidationError("Username already taken.")
+        return value

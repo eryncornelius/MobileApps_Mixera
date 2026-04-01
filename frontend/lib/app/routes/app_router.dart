@@ -3,6 +3,7 @@ import '../../features/auth/presentation/pages/auth_gate_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/otp_verification_page.dart';
+import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
@@ -44,6 +45,11 @@ class AppRouter {
         final email = settings.arguments as String? ?? '';
         return MaterialPageRoute(
           builder: (_) => OtpVerificationPage(email: email),
+        );
+      case RouteNames.editProfile:
+        return MaterialPageRoute(
+          builder: (_) => const EditProfilePage(),
+          settings: settings,
         );
 
       default:
