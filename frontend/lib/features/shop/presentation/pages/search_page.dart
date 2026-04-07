@@ -29,7 +29,7 @@ class _SearchPageState extends State<SearchPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'MIXÉRA',
+          'MIXERA',
           style: TextStyle(
             color: Color(0xFFFF8B94),
             fontWeight: FontWeight.bold,

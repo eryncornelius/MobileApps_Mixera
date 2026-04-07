@@ -17,7 +17,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const Icon(Icons.arrow_back, color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text(
           "MIXERA",
           style: TextStyle(
@@ -238,7 +241,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(15),
                     image: const DecorationImage(
-                      image: NetworkImage('https://via.placeholder.com/150'),
+                      image: NetworkImage(''),
                       fit: BoxFit.cover,
                     ),
                   ),

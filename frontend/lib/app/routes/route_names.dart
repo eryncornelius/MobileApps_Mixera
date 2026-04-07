@@ -10,4 +10,5 @@ class RouteNames {
   static const forgotPassword = '/forgot-password';
   static const resetPassword = '/reset-password';
   static const editProfile = '/edit-profile';
+  static const search = '/search';
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../app/routes/route_names.dart';
 import '../widgets/category_tabs.dart';
 import '../widgets/product_grid.dart';
 import '../widgets/product_image_carousel.dart';
@@ -24,7 +25,7 @@ class _ShopPageState extends State<ShopPage> {
         centerTitle: true,
         title: const Column(
           children: [
-            Text('MIXÉRA', style: TextStyle(color: Color(0xFFFF8B94), fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('MIXERA', style: TextStyle(color: Color(0xFFFF8B94), fontWeight: FontWeight.bold, fontSize: 16)),
             Text('Shop', style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.w300)),
           ],
         ),
@@ -43,7 +44,7 @@ class _ShopPageState extends State<ShopPage> {
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: TextField(
               readOnly: true,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchPage())),
+              onTap: () => Navigator.of(context).pushNamed(RouteNames.search),
               decoration: InputDecoration(
                 hintText: 'Search...',
                 filled: true,

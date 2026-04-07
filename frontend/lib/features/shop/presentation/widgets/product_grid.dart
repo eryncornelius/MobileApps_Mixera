@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../pages/product_detail_page.dart';
 
 class ProductGrid extends StatelessWidget {
   final int itemCount;
@@ -16,7 +17,13 @@ class ProductGrid extends StatelessWidget {
         mainAxisSpacing: 10,
       ),
       itemCount: itemCount,
-      itemBuilder: (context, index) => const ProductCard(),
+      itemBuilder: (context, index) => InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ProductDetailPage()),
+        ),
+        child: const ProductCard(),
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/shop/presentation/pages/search_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
 import 'route_names.dart';
 
@@ -51,6 +52,9 @@ class AppRouter {
           builder: (_) => const EditProfilePage(),
           settings: settings,
         );
+
+      case RouteNames.search:
+        return MaterialPageRoute(builder: (_) => const SearchPage());
 
       default:
         return MaterialPageRoute(
