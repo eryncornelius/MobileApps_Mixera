@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -204,6 +205,11 @@ class CheckoutPage extends StatelessWidget {
 
   Future<void> _handleCardPayment(
       BuildContext context, CheckoutController checkoutC) async {
+    if (kIsWeb) {
+      _showError(context, 'Card payment via browser is not supported. Please use the mobile app.');
+      return;
+    }
+
     // Step 1: Create unpaid order
     final order = await checkoutC.createCardOrder();
     if (!context.mounted) return;
@@ -272,6 +278,8 @@ class CheckoutPage extends StatelessWidget {
       if (!context.mounted) return;
 
       if (dsResult == Card3DSResult.success) {
+        checkoutC.clearCardOrder();
+        checkoutC.loadSavedCards(); // Reload after 3DS — backend saved the card by now
         Navigator.pushReplacementNamed(context, RouteNames.purchaseComplete);
       } else if (dsResult == Card3DSResult.cancelled) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -288,6 +296,7 @@ class CheckoutPage extends StatelessWidget {
 
     // No 3DS needed — immediate capture/settlement
     if (chargeResult.isSuccess) {
+      checkoutC.clearCardOrder();
       Navigator.pushReplacementNamed(context, RouteNames.purchaseComplete);
     } else {
       _showError(context, 'Card payment was declined. Please try a different card.');

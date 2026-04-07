@@ -84,15 +84,18 @@ class PurchaseCompletePage extends StatelessWidget {
               ElevatedButton(
                 onPressed: () => Navigator.pushNamedAndRemoveUntil(
                   context,
-                  RouteNames.mainShell,
+                  RouteNames.orders,
                   (route) => false,
                 ),
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.blushPink,
+                  foregroundColor: AppColors.softWhite,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
+                  minimumSize: const Size(double.infinity, 0),
                 ),
-                child: const Text('Back to Home'),
+                child: const Text('View My Orders'),
               ),
               const SizedBox(height: 12),
               GestureDetector(
@@ -100,10 +103,9 @@ class PurchaseCompletePage extends StatelessWidget {
                   context,
                   RouteNames.mainShell,
                   (route) => false,
-                  arguments: 3, // Shop tab index
                 ),
                 child: Text(
-                  'Continue Shopping',
+                  'Back to Home',
                   style: AppTextStyles.description
                       .copyWith(color: AppColors.blushPink),
                 ),

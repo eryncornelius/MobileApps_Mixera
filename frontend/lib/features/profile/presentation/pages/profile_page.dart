@@ -118,7 +118,7 @@ class ProfilePage extends StatelessWidget {
                   ProfileMenuTile(
                     icon: Icons.receipt_long_outlined,
                     label: 'Orders',
-                    onTap: () {},
+                    onTap: () => Navigator.pushNamed(context, RouteNames.orders),
                   ),
                   _divider(),
                   ProfileMenuTile(

@@ -3,10 +3,23 @@ import 'package:get/get.dart';
 
 import '../../../../../app/theme/app_colors.dart';
 import '../../../../../app/theme/app_text_styles.dart';
+import '../../../cart/presentation/controllers/cart_controller.dart';
 import '../controllers/checkout_controller.dart';
 
 class PaymentMethodSelector extends StatelessWidget {
   const PaymentMethodSelector({super.key});
+
+  String _fmt(int v) {
+    final s = v.toString();
+    final buf = StringBuffer();
+    int count = 0;
+    for (int i = s.length - 1; i >= 0; i--) {
+      if (count > 0 && count % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+      count++;
+    }
+    return 'Rp ${buf.toString().split('').reversed.join()}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +68,40 @@ class PaymentMethodSelector extends StatelessWidget {
                         children: [
                           Text(pm.label, style: AppTextStyles.type),
                           Text(pm.description, style: AppTextStyles.small),
+                          if (pm.id == 'wallet') ...[
+                            const SizedBox(height: 4),
+                            Obx(() {
+                              final balance = checkoutC.walletBalance.value;
+                              final cartTotal =
+                                  Get.find<CartController>().total;
+                              if (balance == null) {
+                                return const SizedBox.shrink();
+                              }
+                              final insufficient = balance < cartTotal;
+                              final formatted = _fmt(balance);
+                              return Row(
+                                children: [
+                                  Text(
+                                    'Balance: $formatted',
+                                    style: AppTextStyles.small.copyWith(
+                                      color: insufficient
+                                          ? AppColors.error
+                                          : AppColors.success,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  if (insufficient) ...[
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '· Insufficient',
+                                      style: AppTextStyles.small.copyWith(
+                                          color: AppColors.error),
+                                    ),
+                                  ],
+                                ],
+                              );
+                            }),
+                          ],
                         ],
                       ),
                     ),

@@ -44,6 +44,7 @@ class ProfileController extends GetxController {
   void onInit() {
     super.onInit();
     fetchProfile();
+    fetchAddresses();
   }
 
   Future<void> fetchProfile() async {

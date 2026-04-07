@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/features/wardrobe/presentation/pages/wardrobe_page.dart';
+import '../../../mix_match/presentation/pages/mix_match_page.dart';
 
 import '../widgets/app_bottom_navbar.dart';
 import '../../../home/presentation/pages/home_page.dart';
@@ -17,8 +19,8 @@ class _MainShellPageState extends State<MainShellPage> {
 
   late final List<Widget> _pages = [
     const HomePage(),
-    const _WardrobePlaceholderPage(),
-    const _MixPlaceholderPage(),
+    const WardrobePage(),
+    const MixMatchPage(),
     const ShopPage(),
     const ProfilePage(),
   ];

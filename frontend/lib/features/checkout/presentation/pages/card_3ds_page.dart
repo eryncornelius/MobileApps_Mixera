@@ -48,10 +48,31 @@ class _Card3DSPageState extends State<Card3DSPage> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) => setState(() => _loading = true),
-        onPageFinished: (_) => setState(() => _loading = false),
+        onPageFinished: _onPageFinished,
         onNavigationRequest: _onNavigate,
       ))
       ..loadRequest(Uri.parse(widget.args.redirectUrl));
+  }
+
+  void _onPageFinished(String url) {
+    if (mounted) setState(() => _loading = false);
+    if (_polling) return;
+
+    // Midtrans Core API doesn't honor callbacks.finish for 3DS — the "Card is
+    // authenticated" page has no redirect configured. Inject JS to detect the
+    // completion text and navigate to our intercept URL so onNavigationRequest
+    // can pick it up without any Midtrans dashboard configuration.
+    _controller.runJavaScript('''
+      (function() {
+        try {
+          var txt = document.body ? (document.body.innerText || '') : '';
+          if (txt.indexOf('Card is authenticated') !== -1 ||
+              txt.indexOf('authenticated successfully') !== -1) {
+            window.location.href = 'mixera://3ds/done';
+          }
+        } catch(e) {}
+      })();
+    ''');
   }
 
   NavigationDecision _onNavigate(NavigationRequest req) {

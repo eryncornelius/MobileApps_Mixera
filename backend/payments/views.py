@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from wallet.models import WalletTransaction
 from wallet.services import credit_wallet
 
 from .models import PaymentTransaction, SavedCard
@@ -53,6 +54,9 @@ class CreateSnapTransactionView(APIView):
             "custom_field1": purpose,
             "custom_field2": str(request.user.id),
         }
+
+        if settings.MIDTRANS_NOTIFICATION_URL:
+            payload["notification_url"] = settings.MIDTRANS_NOTIFICATION_URL
 
         midtrans_response = MidtransService.create_snap_transaction(payload)
 
@@ -130,6 +134,13 @@ class CardChargeView(APIView):
             },
         }
 
+        if settings.MIDTRANS_NOTIFICATION_URL:
+            payload["notification_url"] = settings.MIDTRANS_NOTIFICATION_URL
+
+        # After 3DS the browser redirects to this URL. The Flutter WebView
+        # intercepts it (non-Midtrans domain) and starts polling for status.
+        payload["callbacks"] = {"finish": "mixera://3ds/done"}
+
         # Idempotency — reuse existing pending tx for this order if charge failed mid-flight
         existing_tx = PaymentTransaction.objects.filter(
             linked_order_id=django_order_id,
@@ -142,6 +153,7 @@ class CardChargeView(APIView):
 
         try:
             midtrans_response = MidtransService.charge_card(payload)
+
         except Exception as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
@@ -164,10 +176,14 @@ class CardChargeView(APIView):
 
         # Mark order paid immediately on capture/settlement with no fraud flag
         if tx_status in ("capture", "settlement") and fraud in ("accept", None, ""):
+            from cart.models import Cart
             with db_transaction.atomic():
                 order.payment_status = "paid"
                 order.status = "processing"
                 order.save(update_fields=["payment_status", "status"])
+                cart = Cart.objects.filter(user=request.user).first()
+                if cart:
+                    cart.items.all().delete()
 
         # Store saved card if Midtrans returned a token
         if save_card:
@@ -231,6 +247,7 @@ class MidtransNotificationView(APIView):
                 )
             elif tx.purpose == "shop_order" and tx.linked_order_id:
                 from orders.models import Order
+                from cart.models import Cart
                 fraud = tx.fraud_status
                 if fraud in ("accept", None, ""):
                     Order.objects.filter(
@@ -238,6 +255,25 @@ class MidtransNotificationView(APIView):
                         user=tx.user,
                         payment_status="unpaid",
                     ).update(payment_status="paid", status="processing")
+                    cart = Cart.objects.filter(user=tx.user).first()
+                    if cart:
+                        cart.items.all().delete()
+
+                # For 3DS card transactions the initial charge response is
+                # "pending", so saved_token_id only arrives here in the webhook.
+                if tx.payment_method_type == "card":
+                    saved_token_id = payload.get("saved_token_id")
+                    if saved_token_id and not SavedCard.objects.filter(
+                        saved_token_id=saved_token_id
+                    ).exists():
+                        is_first = not SavedCard.objects.filter(user=tx.user).exists()
+                        SavedCard.objects.create(
+                            user=tx.user,
+                            card_brand=payload.get("bank", ""),
+                            masked_card=payload.get("masked_card", ""),
+                            saved_token_id=saved_token_id,
+                            is_default=is_first,
+                        )
 
         return Response({"detail": "Notification received."}, status=status.HTTP_200_OK)
 
@@ -252,11 +288,43 @@ class PaymentStatusView(APIView):
 
         try:
             latest_status = MidtransService.get_transaction_status(order_id)
+            prev_status = tx.transaction_status
             tx.transaction_status = latest_status.get("transaction_status", tx.transaction_status)
             tx.payment_type = latest_status.get("payment_type", tx.payment_type)
             tx.fraud_status = latest_status.get("fraud_status", tx.fraud_status)
             tx.raw_response = latest_status
             tx.save()
+
+            settled = tx.transaction_status in ("settlement", "capture")
+            was_pending = prev_status not in ("settlement", "capture")
+
+            # Reconciliation fallback: credit wallet if webhook was never received
+            if settled and was_pending and tx.purpose == "wallet_topup":
+                already_credited = WalletTransaction.objects.filter(
+                    reference=tx.order_id
+                ).exists()
+                if not already_credited:
+                    credit_wallet(
+                        user=tx.user,
+                        amount=tx.gross_amount,
+                        reference=tx.order_id,
+                    )
+
+            # Reconciliation fallback: save card if webhook was never received.
+            # Midtrans returns saved_token_id in the status poll response too.
+            if settled and was_pending and tx.payment_method_type == "card":
+                saved_token_id = latest_status.get("saved_token_id")
+                if saved_token_id and not SavedCard.objects.filter(
+                    saved_token_id=saved_token_id
+                ).exists():
+                    is_first = not SavedCard.objects.filter(user=tx.user).exists()
+                    SavedCard.objects.create(
+                        user=tx.user,
+                        card_brand=latest_status.get("bank", ""),
+                        masked_card=latest_status.get("masked_card", ""),
+                        saved_token_id=saved_token_id,
+                        is_default=is_first,
+                    )
         except Exception:
             pass
 

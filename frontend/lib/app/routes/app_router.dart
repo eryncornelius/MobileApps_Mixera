@@ -27,6 +27,9 @@ import '../../features/splash/presentation/pages/splash_page.dart';
 import '../../features/wallet/presentation/pages/add_money_page.dart';
 import '../../features/wallet/presentation/pages/snap_webview_page.dart';
 import '../../features/wallet/presentation/pages/wallet_page.dart';
+import '../../features/orders/presentation/pages/order_detail_page.dart';
+import '../../features/orders/presentation/pages/orders_page.dart';
+import '../../features/wardrobe/presentation/pages/wardrobe_page.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -127,13 +130,37 @@ class AppRouter {
       case RouteNames.purchaseComplete:
         return MaterialPageRoute(builder: (_) => const PurchaseCompletePage());
 
+      // case RouteNames.cardTokenize:
+      //   final args = settings.arguments as CardTokenizeArgs;
+      //   return MaterialPageRoute(builder: (_) => CardTokenizePage(args: args));
       case RouteNames.cardTokenize:
         final args = settings.arguments as CardTokenizeArgs;
-        return MaterialPageRoute(builder: (_) => CardTokenizePage(args: args));
+        return MaterialPageRoute<CardTokenResult?>(
+          builder: (_) => CardTokenizePage(args: args),
+          settings: settings,
+        );
 
+      // case RouteNames.card3DS:
+      //   final args = settings.arguments as Card3DSArgs;
+      //   return MaterialPageRoute(builder: (_) => Card3DSPage(args: args));
+       
       case RouteNames.card3DS:
         final args = settings.arguments as Card3DSArgs;
-        return MaterialPageRoute(builder: (_) => Card3DSPage(args: args));
+        return MaterialPageRoute<Card3DSResult?>(
+          builder: (_) => Card3DSPage(args: args),
+          settings: settings,
+        );
+      case RouteNames.orders:
+        return MaterialPageRoute(builder: (_) => const OrdersPage());
+
+      case RouteNames.orderDetail:
+        final orderId = settings.arguments as int;
+        return MaterialPageRoute(
+          builder: (_) => OrderDetailPage(orderId: orderId),
+        );
+
+      case RouteNames.wardrobe:
+        return MaterialPageRoute(builder: (_) => const WardrobePage());
 
       default:
         return MaterialPageRoute(

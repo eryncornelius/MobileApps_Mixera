@@ -59,7 +59,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final cartC = Get.find<CartController>();
     await cartC.addItem(_selectedVariant!.id, 1);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Added to bag!', style: AppTextStyles.description.copyWith(color: Colors.white)),
           backgroundColor: AppColors.blushPink,

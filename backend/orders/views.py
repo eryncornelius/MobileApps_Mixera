@@ -111,8 +111,9 @@ class CheckoutView(APIView):
                     order.payment_status = 'paid'
                     order.status = 'processing'
                     order.save(update_fields=['payment_status', 'status'])
-
-                cart.items.all().delete()
+                    # Clear cart immediately for wallet payments (paid synchronously).
+                    # For card payments, cart is cleared after charge succeeds.
+                    cart.items.all().delete()
 
         except ValueError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)

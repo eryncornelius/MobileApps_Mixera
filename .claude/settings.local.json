@@ -4,7 +4,8 @@
       "Bash(python manage.py makemigrations users)",
       "Bash(flutter analyze:*)",
       "Bash(python -c \"from payments.views import CardChargeView, SavedCardListView, SavedCardDetailView, PaymentMethodsView; print\\(''imports OK''\\)\")",
-      "Bash(python manage.py check)"
+      "Bash(python manage.py check)",
+      "Read(//c/Users/Lenovo Legion/.claude/projects/c--Kampus-ProjectApp-MobileApps-Mixera/memory/**)"
     ]
   }
 }

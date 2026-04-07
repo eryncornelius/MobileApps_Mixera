@@ -1,0 +1,2 @@
+"""Wardrobe detection service implementations."""
+

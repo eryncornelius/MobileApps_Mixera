@@ -2,7 +2,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 
 import '../../../cart/presentation/controllers/cart_controller.dart';
+import '../../../profile/data/models/address_model.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
+import '../../../wallet/data/datasources/wallet_remote_datasource.dart';
 import '../../data/datasources/card_payment_remote_datasource.dart';
 import '../../data/datasources/checkout_remote_datasource.dart';
 import '../../data/models/card_charge_result_model.dart';
@@ -37,6 +39,10 @@ class CheckoutController extends GetxController {
 
   final paymentMethods = _paymentMethods;
 
+  // Wallet balance
+  final walletBalance = Rxn<int>();
+  final _walletDs = WalletRemoteDatasource();
+
   // Saved cards
   final savedCards = <SavedCardModel>[].obs;
   final isLoadingSavedCards = false.obs;
@@ -48,9 +54,26 @@ class CheckoutController extends GetxController {
   void onInit() {
     super.onInit();
     final profileC = Get.find<ProfileController>();
-    final primary = profileC.addresses.firstWhereOrNull((a) => a.isPrimary);
-    if (primary != null) selectedAddressId.value = primary.id;
+    // Pick immediately if already loaded, then keep watching for async load
+    _pickDefaultAddress(profileC.addresses);
+    ever(profileC.addresses, _pickDefaultAddress);
     loadSavedCards();
+    _fetchWalletBalance();
+  }
+
+  void _pickDefaultAddress(List<AddressModel> addresses) {
+    if (selectedAddressId.value != null) return;
+    final pick = addresses.firstWhereOrNull((a) => a.isPrimary) ?? addresses.firstOrNull;
+    if (pick != null) selectedAddressId.value = pick.id;
+  }
+
+  Future<void> _fetchWalletBalance() async {
+    try {
+      final wallet = await _walletDs.getWallet();
+      walletBalance.value = wallet.balance;
+    } catch (_) {
+      // silent — balance display is informational only
+    }
   }
 
   Future<void> loadSavedCards() async {
@@ -97,7 +120,16 @@ class CheckoutController extends GetxController {
   }
 
   /// Card checkout — creates an unpaid order and returns it for card charge.
+  /// If a card order was already created this session (lastOrder is unpaid card),
+  /// reuses it instead of creating a duplicate.
   Future<OrderModel?> createCardOrder() async {
+    final existing = lastOrder.value;
+    if (existing != null &&
+        existing.paymentMethod == 'card' &&
+        existing.paymentStatus == 'unpaid') {
+      return existing;
+    }
+
     final addressId = selectedAddressId.value;
     if (addressId == null) {
       errorMessage = 'Please select a shipping address.';
@@ -114,7 +146,6 @@ class CheckoutController extends GetxController {
         ),
       );
       lastOrder.value = order;
-      Get.find<CartController>().fetchCart();
       return order;
     } catch (e) {
       errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -123,6 +154,9 @@ class CheckoutController extends GetxController {
       isPlacingOrder.value = false;
     }
   }
+
+  /// Clears the pending card order so a fresh one is created next time.
+  void clearCardOrder() => lastOrder.value = null;
 
   /// Charges the card and returns the raw result so the caller can handle
   /// 3DS redirect, immediate capture, or failure itself.
@@ -148,7 +182,6 @@ class CheckoutController extends GetxController {
         return null;
       }
 
-      if (saveCard) loadSavedCards();
       return result;
     } catch (e) {
       errorMessage = e.toString().replaceFirst('Exception: ', '');

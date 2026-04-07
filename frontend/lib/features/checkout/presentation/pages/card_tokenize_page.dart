@@ -1,7 +1,6 @@
-import 'dart:convert';
-
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
@@ -10,14 +9,11 @@ class CardTokenizeArgs {
   final String clientKey;
   final int total;
   final bool isSandbox;
-  // When set, the page re-tokenizes a saved card (two-click flow).
-  final String? savedTokenId;
 
   const CardTokenizeArgs({
     required this.clientKey,
     required this.total,
     this.isSandbox = true,
-    this.savedTokenId,
   });
 }
 
@@ -26,6 +22,28 @@ class CardTokenResult {
   final bool saveCard;
 
   const CardTokenResult({required this.tokenId, required this.saveCard});
+}
+
+// Formats card number with spaces every 4 digits (max 16 digits).
+class _CardNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 16) return oldValue;
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i > 0 && i % 4 == 0) buffer.write(' ');
+      buffer.write(digits[i]);
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
 }
 
 class CardTokenizePage extends StatefulWidget {
@@ -37,191 +55,80 @@ class CardTokenizePage extends StatefulWidget {
 }
 
 class _CardTokenizePageState extends State<CardTokenizePage> {
-  late final WebViewController _controller;
-  bool _loading = true;
+  final _formKey = GlobalKey<FormState>();
+  final _cardNumberCtrl = TextEditingController();
+  final _expMonthCtrl = TextEditingController();
+  final _expYearCtrl = TextEditingController();
+  final _cvvCtrl = TextEditingController();
+  bool _saveCard = false;
+  bool _loading = false;
+  String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel('FlutterMidtrans', onMessageReceived: _onToken)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) => setState(() => _loading = true),
-        onPageFinished: (_) => setState(() => _loading = false),
-      ))
-      ..loadHtmlString(_buildHtml());
+  void dispose() {
+    _cardNumberCtrl.dispose();
+    _expMonthCtrl.dispose();
+    _expYearCtrl.dispose();
+    _cvvCtrl.dispose();
+    super.dispose();
   }
 
-  void _onToken(JavaScriptMessage message) {
-    final data = jsonDecode(message.message) as Map<String, dynamic>;
-    if (data['success'] == true) {
-      final result = CardTokenResult(
-        tokenId: data['token_id'] as String,
-        saveCard: data['save_card'] as bool? ?? false,
-      );
-      if (mounted) Navigator.pop(context, result);
-    }
-  }
-
-  String _buildHtml() {
-    final env = widget.args.isSandbox ? 'sandbox' : 'production';
-    final jsUrl = widget.args.isSandbox
-        ? 'https://api.sandbox.midtrans.com/v2/assets/js/midtrans-new-3ds.min.js'
-        : 'https://api.midtrans.com/v2/assets/js/midtrans-new-3ds.min.js';
-    final clientKey = widget.args.clientKey;
-    final savedToken = widget.args.savedTokenId ?? '';
-    final isSavedCard = savedToken.isNotEmpty;
-
-    return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Card Payment</title>
-  <script src="$jsUrl"
-    data-environment="$env"
-    data-client-key="$clientKey">
-  </script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    body { background: #FFF5F7; min-height: 100vh; padding: 20px 16px 32px; }
-    .card { background: #FFFFFF; border-radius: 16px; padding: 20px; border: 1px solid #E6E6E6; }
-    .field-label { font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; margin-top: 14px; }
-    .field-label:first-child { margin-top: 0; }
-    input[type=tel] {
-      width: 100%; padding: 13px 14px; font-size: 15px;
-      border: 1.5px solid #E6E6E6; border-radius: 10px;
-      color: #2E2E2E; background: #FAFAFA; outline: none;
-      -webkit-appearance: none;
-    }
-    input[type=tel]:focus { border-color: #F4B6C2; background: #FFF; }
-    .row { display: flex; gap: 10px; }
-    .row .col { flex: 1; }
-    .check-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; cursor: pointer; }
-    .check-row input[type=checkbox] { width: 18px; height: 18px; accent-color: #F4B6C2; cursor: pointer; flex-shrink: 0; }
-    .check-row span { font-size: 13px; color: #2E2E2E; }
-    .saved-card-label { font-size: 14px; color: #2E2E2E; margin-bottom: 12px; }
-    .saved-card-note { font-size: 12px; color: #6B6B6B; margin-bottom: 16px; }
-    .pay-btn {
-      width: 100%; margin-top: 20px; padding: 14px;
-      background: #F4B6C2; border: none; border-radius: 30px;
-      font-size: 15px; font-weight: 600; color: #fff;
-      cursor: pointer; letter-spacing: 0.3px;
-    }
-    .pay-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-    .error-msg { margin-top: 10px; font-size: 12px; color: #E07A7A; text-align: center; min-height: 16px; }
-    .loader-msg { margin-top: 10px; font-size: 13px; color: #6B6B6B; text-align: center; display: none; }
-    .loader-msg.visible { display: block; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    ${isSavedCard ? '''
-      <p class="saved-card-label">Paying with saved card</p>
-      <p class="saved-card-note">We will re-verify your card securely via Midtrans.</p>
-    ''' : '''
-      <span class="field-label">Card Number</span>
-      <input type="tel" id="card_number" placeholder="0000 0000 0000 0000" maxlength="19" inputmode="numeric" autocomplete="cc-number">
-      <div class="row" style="margin-top:0;">
-        <div class="col">
-          <span class="field-label">Month</span>
-          <input type="tel" id="exp_month" placeholder="MM" maxlength="2" inputmode="numeric" autocomplete="cc-exp-month">
-        </div>
-        <div class="col">
-          <span class="field-label">Year</span>
-          <input type="tel" id="exp_year" placeholder="YYYY" maxlength="4" inputmode="numeric" autocomplete="cc-exp-year">
-        </div>
-        <div class="col">
-          <span class="field-label">CVV</span>
-          <input type="tel" id="cvv" placeholder="CVV" maxlength="4" inputmode="numeric" autocomplete="cc-csc">
-        </div>
-      </div>
-      <label class="check-row">
-        <input type="checkbox" id="save_card">
-        <span>Save card for future purchases</span>
-      </label>
-    '''}
-
-    <button class="pay-btn" type="button" id="payBtn" onclick="tokenize()">
-      ${isSavedCard ? 'Confirm Payment' : 'Tokenize Card'}
-    </button>
-    <div class="error-msg" id="errorMsg"></div>
-    <div class="loader-msg" id="loaderMsg">Verifying card details...</div>
-  </div>
-
-  <script>
-    ${isSavedCard ? '' : '''
-    document.getElementById('card_number').addEventListener('input', function(e) {
-      var v = e.target.value.replace(/\\D/g, '').substring(0, 16);
-      var parts = [];
-      for (var i = 0; i < v.length; i += 4) parts.push(v.substring(i, i + 4));
-      e.target.value = parts.join(' ');
+  Future<void> _tokenize() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _loading = true;
+      _error = null;
     });
-    '''}
 
-    function tokenize() {
-      var btn = document.getElementById('payBtn');
-      var errorEl = document.getElementById('errorMsg');
-      var loaderEl = document.getElementById('loaderMsg');
-      errorEl.textContent = '';
+    final baseUrl = widget.args.isSandbox
+        ? 'https://api.sandbox.midtrans.com'
+        : 'https://api.midtrans.com';
 
-      ${isSavedCard ? '''
-      var cardData = { saved_token_id: '$savedToken' };
-      var saveCard = false;
-      ''' : '''
-      var cardNumber = document.getElementById('card_number').value.replace(/\\s/g, '');
-      var expMonth   = document.getElementById('exp_month').value.trim();
-      var expYear    = document.getElementById('exp_year').value.trim();
-      var cvv        = document.getElementById('cvv').value.trim();
-      var saveCard   = document.getElementById('save_card').checked;
-
-      if (cardNumber.length < 12) { errorEl.textContent = 'Please enter a valid card number.'; return; }
-      if (expMonth.length !== 2 || parseInt(expMonth) < 1 || parseInt(expMonth) > 12)
-        { errorEl.textContent = 'Please enter a valid expiry month (MM).'; return; }
-      if (expYear.length !== 4) { errorEl.textContent = 'Please enter a valid expiry year (YYYY).'; return; }
-      if (cvv.length < 3) { errorEl.textContent = 'Please enter a valid CVV.'; return; }
-
-      var cardData = { card_number: cardNumber, card_exp_month: expMonth,
-                       card_exp_year: expYear, card_cvv: cvv };
-      '''}
-
-      btn.disabled = true;
-      loaderEl.className = 'loader-msg visible';
-
-      MidtransNew.getCardToken(cardData, function(response) {
-        btn.disabled = false;
-        loaderEl.className = 'loader-msg';
-        if (response.status_code === '200') {
-          FlutterMidtrans.postMessage(JSON.stringify({
-            success: true,
-            token_id: response.token_id,
-            save_card: saveCard
-          }));
-        } else {
-          errorEl.textContent = response.status_message || 'Tokenization failed.';
-        }
-      }, function(error) {
-        btn.disabled = false;
-        loaderEl.className = 'loader-msg';
-        errorEl.textContent = (error && error.status_message)
-          ? error.status_message : 'Card error. Please check your details.';
+    // Midtrans client-side tokenization — card data goes directly to Midtrans,
+    // never through the merchant backend.
+    final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
+    try {
+      final response = await dio.get<Map<String, dynamic>>(
+        '$baseUrl/v2/token',
+        queryParameters: {
+          'card_number': _cardNumberCtrl.text.replaceAll(' ', ''),
+          'card_exp_month': _expMonthCtrl.text.trim(),
+          'card_exp_year': _expYearCtrl.text.trim(),
+          'card_cvv': _cvvCtrl.text.trim(),
+          'client_key': widget.args.clientKey,
+        },
+      );
+      final data = response.data;
+      if (data != null && data['status_code'] == '200') {
+        final result = CardTokenResult(
+          tokenId: data['token_id'] as String,
+          saveCard: _saveCard,
+        );
+        if (mounted) Navigator.pop(context, result);
+      } else {
+        setState(() {
+          _error = (data?['status_message'] as String?) ?? 'Tokenization failed.';
+        });
+      }
+    } on DioException catch (e) {
+      final serverMsg = e.response?.data is Map
+          ? e.response!.data['status_message'] as String?
+          : null;
+      setState(() {
+        _error = serverMsg ?? 'Network error. Please try again.';
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-  </script>
-</body>
-</html>
-''';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isSavedCard = widget.args.savedTokenId != null;
     return Scaffold(
       backgroundColor: AppColors.warmCream,
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -248,40 +155,275 @@ class _CardTokenizePageState extends State<CardTokenizePage> {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  isSavedCard ? 'Confirm Payment' : 'Card Details',
-                  style: AppTextStyles.headline,
-                ),
-              ),
+              child: Text('Card Details', style: AppTextStyles.headline),
             ),
             const SizedBox(height: 4),
-            if (!isSavedCard)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Your card data is never stored on our servers.',
-                    style: AppTextStyles.small,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'Your card data is never stored on our servers.',
+                style: AppTextStyles.small,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _FieldLabel('Card Number'),
+                      _CardField(
+                        controller: _cardNumberCtrl,
+                        hint: '0000 0000 0000 0000',
+                        inputFormatters: [_CardNumberFormatter()],
+                        keyboardType: TextInputType.number,
+                        autofillHints: const [AutofillHints.creditCardNumber],
+                        validator: (v) {
+                          final digits = (v ?? '').replaceAll(' ', '');
+                          if (digits.length < 12) return 'Enter a valid card number';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _FieldLabel('Month'),
+                                _CardField(
+                                  controller: _expMonthCtrl,
+                                  hint: 'MM',
+                                  maxLength: 2,
+                                  keyboardType: TextInputType.number,
+                                  autofillHints: const [
+                                    AutofillHints.creditCardExpirationMonth
+                                  ],
+                                  validator: (v) {
+                                    final n = int.tryParse(v?.trim() ?? '');
+                                    if (n == null || n < 1 || n > 12) {
+                                      return 'MM';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _FieldLabel('Year'),
+                                _CardField(
+                                  controller: _expYearCtrl,
+                                  hint: 'YYYY',
+                                  maxLength: 4,
+                                  keyboardType: TextInputType.number,
+                                  autofillHints: const [
+                                    AutofillHints.creditCardExpirationYear
+                                  ],
+                                  validator: (v) {
+                                    if ((v?.trim().length ?? 0) != 4) return 'YYYY';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _FieldLabel('CVV'),
+                                _CardField(
+                                  controller: _cvvCtrl,
+                                  hint: 'CVV',
+                                  maxLength: 4,
+                                  obscureText: true,
+                                  keyboardType: TextInputType.number,
+                                  autofillHints: const [
+                                    AutofillHints.creditCardSecurityCode
+                                  ],
+                                  validator: (v) {
+                                    if ((v?.trim().length ?? 0) < 3) return 'CVV';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _saveCard = !_saveCard),
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: _saveCard,
+                              onChanged: (v) =>
+                                  setState(() => _saveCard = v ?? false),
+                              activeColor: AppColors.blushPink,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4)),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text('Save card for future purchases',
+                                style: TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _tokenize,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.blushPink,
+                            disabledBackgroundColor:
+                                AppColors.blushPink.withValues(alpha: 0.55),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: _loading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Tokenize Card',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 10),
+                        Center(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFFE07A7A)),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                    ],
                   ),
                 ),
-              ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Stack(
-                children: [
-                  WebViewWidget(controller: _controller),
-                  if (_loading)
-                    const Center(
-                      child: CircularProgressIndicator(color: AppColors.blushPink),
-                    ),
-                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          color: Color(0xFF6B6B6B),
+          letterSpacing: 0.5,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class _CardField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final int? maxLength;
+  final bool obscureText;
+  final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final Iterable<String>? autofillHints;
+  final String? Function(String?)? validator;
+
+  const _CardField({
+    required this.controller,
+    required this.hint,
+    this.maxLength,
+    this.obscureText = false,
+    this.keyboardType = TextInputType.text,
+    this.inputFormatters,
+    this.autofillHints,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        if (inputFormatters != null) ...inputFormatters!,
+        if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
+      ],
+      autofillHints: autofillHints,
+      validator: validator,
+      style: const TextStyle(fontSize: 15, color: Color(0xFF2E2E2E)),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle:
+            const TextStyle(color: Color(0xFFBDBDBD), fontSize: 15),
+        filled: true,
+        fillColor: const Color(0xFFFAFAFA),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE6E6E6), width: 1.5),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE6E6E6), width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: AppColors.blushPink, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: Color(0xFFE07A7A), width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: Color(0xFFE07A7A), width: 1.5),
+        ),
+        counterText: '',
       ),
     );
   }

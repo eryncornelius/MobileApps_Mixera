@@ -21,4 +21,5 @@ class AppRoutes {
   static const changePassword = RouteNames.changePassword;
   static const security = RouteNames.security;
   static const notificationSettings = RouteNames.notificationSettings;
+  static const wardrobe = RouteNames.wardrobe;
 }

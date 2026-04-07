@@ -41,6 +41,8 @@ MIDTRANS_IS_PRODUCTION = env.bool("MIDTRANS_IS_PRODUCTION", default=False)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+CORS_ALLOW_ALL_ORIGINS = True  # dev only
+
 ALLOWED_HOSTS = ["distichous-demonstratively-guillermo.ngrok-free.dev", "127.0.0.1","localhost"]
 CSRF_TRUSTED_ORIGINS = [
     'https://distichous-demonstratively-guillermo.ngrok-free.dev',
@@ -58,6 +60,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'wardrobe',
+    'mixmatch',
+    'tryon',
     'users',
     'shop',
     'cart',
@@ -67,6 +71,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

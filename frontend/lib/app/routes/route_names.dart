@@ -30,4 +30,5 @@ class RouteNames {
   static const orderDetail = '/orders/detail';
   static const cardTokenize = '/checkout/card-tokenize';
   static const card3DS = '/checkout/card-3ds';
+  static const wardrobe = '/wardrobe';
 }

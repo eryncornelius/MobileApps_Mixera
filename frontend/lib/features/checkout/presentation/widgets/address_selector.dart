@@ -31,6 +31,14 @@ class AddressSelector extends StatelessWidget {
         );
       }
 
+      // Auto-select primary (or first) address if nothing is selected yet
+      if (selectedId == null) {
+        final toSelect = addresses.firstWhereOrNull((a) => a.isPrimary) ?? addresses.first;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          checkoutC.selectedAddressId.value = toSelect.id;
+        });
+      }
+
       final selected = addresses.firstWhereOrNull((a) => a.id == selectedId) ?? addresses.first;
       return _AddressCard(
         address: selected,
