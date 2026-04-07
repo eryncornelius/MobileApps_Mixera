@@ -1,1 +1,9 @@
 *.env
+__pycache__/
+*.pyc
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
