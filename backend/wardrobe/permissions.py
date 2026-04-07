@@ -1,9 +1,10 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import IsAuthenticated
 
 
-class WardrobePermission(BasePermission):
-    """Placeholder permission for wardrobe endpoints."""
-
-    def has_permission(self, request, view):
-        return True
-
+class IsOwner(IsAuthenticated):
+    """
+    Allows access only to authenticated users.
+    Object-level ownership is enforced inside each view/selector
+    (queries are always scoped to request.user).
+    """
+    pass
