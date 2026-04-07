@@ -27,7 +27,13 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 FACEBOOK_APP_ID = os.getenv('FACEBOOK_APP_ID', default='')
 FACEBOOK_APP_SECRET = os.getenv('FACEBOOK_APP_SECRET', default='')
 # SECURITY WARNING: keep the secret key used in production secret!
+
+# Handrian
 SECRET_KEY = 'django-insecure-8da&m*&bly3uv!%fwo!oy-lnazaws0@60$2q*q#^6k)xxp485*'
+
+# Hafizh
+# SECRET_KEY = 'django-insecure-jqx2-cydt1bsxp&yg$46jesu45w4o7tnmsert8mli0l5k9j!p7'
+
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', default='')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
