@@ -15,3 +15,29 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class RecentSearch(models.Model):
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='recent_searches')
+    query = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('user', 'query')
+
+    def __str__(self):
+        return f"{self.user.email} - {self.query}"
+
+
+class RecentlyViewed(models.Model):
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='recently_viewed')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='viewed_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('user', 'product')
+
+    def __str__(self):
+        return f"{self.user.email} viewed {self.product.name}"

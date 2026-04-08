@@ -1,9 +1,14 @@
 from django.db.models import Q
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Product
-from .serializers import ProductSerializer
+from .models import Product, RecentSearch, RecentlyViewed
+from .serializers import (
+    ProductSerializer,
+    RecentSearchSerializer,
+    RecentlyViewedSerializer,
+)
 
 
 class ProductListView(generics.ListAPIView):
@@ -50,3 +55,29 @@ class PopularSearchesView(APIView):
             'Pink',
         ]
         return Response({'popular_searches': popular_searches})
+
+
+class RecentSearchListCreateView(generics.ListCreateAPIView):
+    serializer_class = RecentSearchSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return RecentSearch.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        query = serializer.validated_data.get('query')
+        RecentSearch.objects.filter(user=self.request.user, query__iexact=query).delete()
+        serializer.save(user=self.request.user)
+
+
+class RecentlyViewedListCreateView(generics.ListCreateAPIView):
+    serializer_class = RecentlyViewedSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return RecentlyViewed.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        product = serializer.validated_data.get('product')
+        RecentlyViewed.objects.filter(user=self.request.user, product=product).delete()
+        serializer.save(user=self.request.user)
