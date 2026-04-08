@@ -3,7 +3,6 @@ import '../../../../app/routes/route_names.dart';
 import '../widgets/category_tabs.dart';
 import '../widgets/product_grid.dart';
 import '../widgets/product_image_carousel.dart';
-import 'search_page.dart';
 
 class ShopPage extends StatefulWidget {
   const ShopPage({super.key});

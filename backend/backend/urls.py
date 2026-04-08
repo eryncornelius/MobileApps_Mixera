@@ -11,4 +11,5 @@ urlpatterns = [
     # DEBUGGING PURPOSE
     # Wardrobe API
     path('api/wardrobe/', include('wardrobe.urls')),
+    path('api/shop/', include('shop.urls')),
 ]

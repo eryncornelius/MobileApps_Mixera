@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'shop_page.dart';
+import '../../../../app/routes/route_names.dart';
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({super.key});
 
@@ -19,7 +19,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pushReplacementNamed(RouteNames.shop),
         ),
         title: const Text(
           "MIXERA",

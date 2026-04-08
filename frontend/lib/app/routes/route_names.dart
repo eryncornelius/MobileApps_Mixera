@@ -11,4 +11,5 @@ class RouteNames {
   static const resetPassword = '/reset-password';
   static const editProfile = '/edit-profile';
   static const search = '/search';
+  static const shop = '/shop';
 }
