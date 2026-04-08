@@ -34,3 +34,19 @@ class CategoryChoicesView(APIView):
     def get(self, request):
         choices = [{'value': choice[0], 'label': choice[1]} for choice in Product.CATEGORY_CHOICES]
         return Response(choices)
+
+
+class PopularSearchesView(APIView):
+    def get(self, request):
+        popular_searches = [
+            'Midi skirt',
+            'Blouse',
+            'Sweater',
+            'Cute Tops',
+            'Dress',
+            'Floral Dress',
+            'Crop Tops',
+            'Pastel',
+            'Pink',
+        ]
+        return Response({'popular_searches': popular_searches})
