@@ -11,7 +11,10 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+# Rahasia lokal — contoh variabel tetap di `.env.example` (file itu harus di-commit)
+.env
 *.env
+!.env.example
 
 # IntelliJ related
 *.iml
@@ -33,6 +36,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+android/build/
 
 # Symbolication related
 app.*.symbols
@@ -44,3 +48,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Konfigurasi Firebase per mesin (berisi project/app id); pakai contoh di README tim.
+/android/app/google-services.json

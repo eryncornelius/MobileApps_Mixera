@@ -4,6 +4,13 @@ import requests
 from django.conf import settings
 
 
+class MidtransAPIError(Exception):
+    def __init__(self, message: str, status_code: int | None = None, response_json: dict | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_json = response_json or {}
+
+
 class MidtransService:
     @staticmethod
     def _base_url():
@@ -67,7 +74,19 @@ class MidtransService:
             return response.json()
         except requests.HTTPError as exc:
             detail = exc.response.text if exc.response is not None else str(exc)
-            raise Exception(f"Midtrans Core API error: {detail}") from exc
+            response_json = {}
+            status_code = None
+            if exc.response is not None:
+                status_code = exc.response.status_code
+                try:
+                    response_json = exc.response.json()
+                except ValueError:
+                    response_json = {}
+            raise MidtransAPIError(
+                message=f"Midtrans Core API error: {detail}",
+                status_code=status_code,
+                response_json=response_json,
+            ) from exc
         except requests.RequestException as exc:
             raise Exception(f"Midtrans unreachable: {exc}") from exc
 

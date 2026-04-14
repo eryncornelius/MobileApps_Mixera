@@ -24,3 +24,21 @@ class CartItemDetailSerializer(serializers.ModelSerializer):
             or obj.variant.product.images.first()
         )
         return img.image_url if img else None
+
+
+class CartShippingQuoteSerializer(serializers.Serializer):
+    """Salah satu: alamat tersimpan (kode pos dari situ) atau kode pos manual."""
+
+    destination_postal_code = serializers.CharField(required=False, allow_blank=True, max_length=20)
+    address_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+
+    def validate(self, attrs):
+        aid = attrs.get("address_id")
+        raw = (attrs.get("destination_postal_code") or "").strip().replace(" ", "")
+        if aid is not None:
+            return attrs
+        if not raw or not raw.isdigit() or len(raw) < 5:
+            raise serializers.ValidationError(
+                {"detail": "Kirim address_id (alamat tersimpan) atau destination_postal_code (min. 5 digit)."}
+            )
+        return attrs

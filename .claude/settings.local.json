@@ -5,7 +5,17 @@
       "Bash(flutter analyze:*)",
       "Bash(python -c \"from payments.views import CardChargeView, SavedCardListView, SavedCardDetailView, PaymentMethodsView; print\\(''imports OK''\\)\")",
       "Bash(python manage.py check)",
-      "Read(//c/Users/Lenovo Legion/.claude/projects/c--Kampus-ProjectApp-MobileApps-Mixera/memory/**)"
+      "Read(//c/Users/Lenovo Legion/.claude/projects/c--Kampus-ProjectApp-MobileApps-Mixera/memory/**)",
+      "Bash(pip show:*)",
+      "Bash(c:/Kampus/ProjectApp/MobileApps_Mixera/backend/venv/Scripts/pip show:*)",
+      "Bash(c:/Kampus/ProjectApp/MobileApps_Mixera/backend/venv/Scripts/python -c \"import openai; print\\(openai.__version__\\)\")",
+      "Bash(python manage.py showmigrations wardrobe mixmatch tryon)",
+      "Bash(python manage.py show_urls)",
+      "Bash(python manage.py shell -c \"from django.urls import get_resolver; [print\\(p\\) for p in get_resolver\\(\\).url_patterns]\")",
+      "Bash(find c:/Kampus/ProjectApp/MobileApps_Mixera/backend/mixmatch -name \"*.py\" -exec wc -l {} \\\\;)",
+      "Bash(python manage.py showmigrations mixmatch --verbosity=2)",
+      "Bash(python -c \"from PIL import Image; print\\('Pillow OK'\\)\")",
+      "Bash(python -c \"import openai; print\\('openai OK'\\)\")"
     ]
   }
 }

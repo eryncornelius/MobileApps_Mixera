@@ -4,9 +4,15 @@ class WalletModel {
 
   const WalletModel({required this.balance, required this.updatedAt});
 
+  static int _readInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.round();
+    return int.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
   factory WalletModel.fromJson(Map<String, dynamic> json) {
     return WalletModel(
-      balance: json['balance'] as int? ?? 0,
+      balance: _readInt(json['balance']),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }

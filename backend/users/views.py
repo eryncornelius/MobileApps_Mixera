@@ -4,19 +4,21 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
+from django.db import transaction as db_transaction
 from rest_framework.permissions import IsAuthenticated
-from .models import OTPVerification, Address, NotificationSettings
+from .models import OTPVerification, Address, NotificationSettings, FcmToken, UserNotification
 from django.conf import settings    
 from google.auth.transport import requests as google_requests
+from google.auth import exceptions as google_auth_exceptions
 from google.oauth2 import id_token
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .utils import send_otp_email
 from .serializers import (
-    RegisterSerializer, VerifyOTPSerializer, 
+    RegisterSerializer, VerifyOTPSerializer,
     ForgotPasswordSerializer, ResetPasswordSerializer, CustomTokenObtainPairSerializer, UserMeSerializer, GoogleAuthSerializer,
-    FacebookAuthSerializer,ProfileSerializer, UpdateProfileSerializer, ChangePasswordSerializer, AddressSerializer,
-    NotificationSettingsSerializer
+    FacebookAuthSerializer, ProfileSerializer, UpdateProfileSerializer, ChangePasswordSerializer, AddressSerializer,
+    NotificationSettingsSerializer, UserNotificationSerializer, FcmTokenSerializer,
 )
 from django.shortcuts import get_object_or_404
 
@@ -38,7 +40,7 @@ class GoogleAuthView(APIView):
                 google_requests.Request(),
                 settings.GOOGLE_OAUTH_CLIENT_ID,
             )
-        except ValueError:
+        except (ValueError, google_auth_exceptions.TransportError):
             return Response(
                 {"detail": "Invalid Google token."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -76,9 +78,14 @@ class GoogleAuthView(APIView):
             user.set_unusable_password()
             user.save()
         else:
+            if user.auth_provider == 'email':
+                return Response(
+                    {"detail": "Email ini sudah terdaftar menggunakan email dan password. Silahkan login dengan email dan password Anda."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             if not user.google_id:
                 user.google_id = google_sub
-
             user.auth_provider = 'google'
             user.is_email_verified = True
             user.save()
@@ -191,9 +198,14 @@ class FacebookAuthView(APIView):
             user.set_unusable_password()
             user.save()
         else:
+            if user.auth_provider == 'email':
+                return Response(
+                    {"detail": "Email ini sudah terdaftar menggunakan email dan password. Silahkan login dengan email dan password Anda."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             if not user.facebook_id:
                 user.facebook_id = facebook_id
-
             user.auth_provider = "facebook"
             user.is_email_verified = True
             user.save()
@@ -409,3 +421,53 @@ class NotificationSettingsView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+# User Notifications
+class UserNotificationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = UserNotification.objects.filter(user=request.user)[:50]
+        return Response(UserNotificationSerializer(qs, many=True).data)
+
+
+class UserNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.data.get('all'):
+            UserNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        else:
+            notif_id = request.data.get('id')
+            if notif_id:
+                UserNotification.objects.filter(pk=notif_id, user=request.user).update(is_read=True)
+        return Response({'ok': True})
+
+
+class UserNotificationUnreadCountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        count = UserNotification.objects.filter(user=request.user, is_read=False).count()
+        return Response({'count': count})
+
+
+# FCM Token
+class FcmTokenRegisterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        ser = FcmTokenSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        token = ser.validated_data['token']
+        platform = ser.validated_data['platform']
+        user = request.user
+        # Satu token aktif per user per platform (hindari banyak baris setelah flutter run / refresh token).
+        with db_transaction.atomic():
+            FcmToken.objects.filter(user=user, platform=platform).exclude(token=token).delete()
+            FcmToken.objects.update_or_create(
+                token=token,
+                defaults={'user': user, 'platform': platform},
+            )
+        return Response({'ok': True})

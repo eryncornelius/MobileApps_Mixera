@@ -28,6 +28,8 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
 
   final _name = TextEditingController();
   final _price = TextEditingController();
+  final _discountPrice = TextEditingController();
+  final _color = TextEditingController();
   final _desc = TextEditingController();
   final _optionalImageUrl = TextEditingController();
   final List<_VariantRow> _rows = [_VariantRow(size: 'M', stockText: '0')];
@@ -40,6 +42,8 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
   void dispose() {
     _name.dispose();
     _price.dispose();
+    _discountPrice.dispose();
+    _color.dispose();
     _desc.dispose();
     _optionalImageUrl.dispose();
     for (final r in _rows) {
@@ -113,6 +117,14 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
       );
       return;
     }
+    final discountRaw = _discountPrice.text.trim().replaceAll(RegExp(r'\D'), '');
+    final discountPrice = discountRaw.isEmpty ? null : int.tryParse(discountRaw);
+    if (discountRaw.isNotEmpty && (discountPrice == null || discountPrice >= price)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Harga diskon harus lebih kecil dari harga normal.')),
+      );
+      return;
+    }
     final variants = <Map<String, dynamic>>[];
     for (final r in _rows) {
       final st = int.tryParse(r.stock.text.trim());
@@ -130,7 +142,9 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
       await c.createProduct(
         name: name,
         price: price,
+        discountPrice: discountPrice,
         description: _desc.text.trim(),
+        color: _color.text.trim(),
         imageUrl: _effectiveImageUrl(),
         variants: variants,
         stock: variants.first['stock'] as int,
@@ -186,6 +200,23 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
                         controller: _price,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(labelText: 'Harga (Rp)'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _discountPrice,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Harga diskon (Rp) — opsional',
+                          hintText: 'Kosongkan jika tidak ada diskon',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _color,
+                        decoration: const InputDecoration(
+                          labelText: 'Warna — opsional',
+                          hintText: 'Contoh: Hitam, Navy Blue',
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text('Foto produk (opsional)', style: AppTextStyles.type),

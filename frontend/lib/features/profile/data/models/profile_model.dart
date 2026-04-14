@@ -5,6 +5,8 @@ class ProfileModel {
   final String? phoneNumber;
   final String authProvider;
   final bool isEmailVerified;
+  final bool isSeller;
+  final String sellerStoreName;
   final bool isPremium;
   final String? premiumUntil;
 
@@ -15,6 +17,8 @@ class ProfileModel {
     required this.phoneNumber,
     required this.authProvider,
     required this.isEmailVerified,
+    required this.isSeller,
+    required this.sellerStoreName,
     required this.isPremium,
     required this.premiumUntil,
   });
@@ -27,6 +31,8 @@ class ProfileModel {
       phoneNumber: json['phone_number'] as String?,
       authProvider: json['auth_provider'] as String? ?? 'email',
       isEmailVerified: json['is_email_verified'] as bool? ?? false,
+      isSeller: json['is_seller'] as bool? ?? false,
+      sellerStoreName: json['seller_store_name'] as String? ?? '',
       isPremium: json['is_premium'] as bool? ?? false,
       premiumUntil: json['premium_until'] as String?,
     );
@@ -43,6 +49,8 @@ class ProfileModel {
     String? phoneNumber,
     String? authProvider,
     bool? isEmailVerified,
+    bool? isSeller,
+    String? sellerStoreName,
     bool? isPremium,
     String? premiumUntil,
   }) {
@@ -53,6 +61,8 @@ class ProfileModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       authProvider: authProvider ?? this.authProvider,
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
+      isSeller: isSeller ?? this.isSeller,
+      sellerStoreName: sellerStoreName ?? this.sellerStoreName,
       isPremium: isPremium ?? this.isPremium,
       premiumUntil: premiumUntil ?? this.premiumUntil,
     );

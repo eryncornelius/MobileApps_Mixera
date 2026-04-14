@@ -1,12 +1,14 @@
 import csv
+import io
 import logging
 import uuid
 from datetime import datetime
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction as db_transaction
-from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -25,6 +27,7 @@ from .models import (
     SellerProfile,
 )
 from .permissions import IsApprovedSeller
+from .renderers import CsvTextRenderer
 from .serializers import (
     SellerChannelCreateSerializer,
     SellerChannelListingSerializer,
@@ -172,7 +175,12 @@ class SellerProductImageUploadView(APIView):
         path = f"seller_products/{request.user.id}/{uuid.uuid4().hex}{ext}"
         saved = default_storage.save(path, ContentFile(img.read()))
         rel_url = default_storage.url(saved)
-        full_url = rel_url if rel_url.startswith("http") else request.build_absolute_uri(rel_url)
+        if rel_url.startswith("http"):
+            full_url = rel_url
+        else:
+            public_base = getattr(settings, "BACKEND_PUBLIC_URL", "").strip()
+            base = public_base if public_base else request.build_absolute_uri("/").rstrip("/")
+            full_url = f"{base}{rel_url}"
         return Response({"url": full_url})
 
 
@@ -323,9 +331,13 @@ class SellerOrderDetailView(APIView):
                         {"detail": "Can only mark shipped from processing."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                tracking = (order.tracking_number or "").strip()
+                if not tracking:
+                    return Response(
+                        {"detail": "Nomor resi wajib sebelum menandai dikirim."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 order.status = "shipped"
-            elif new_st == "processing":
-                order.status = "processing"
             elif new_st == "completed":
                 if order.status != "shipped":
                     return Response(
@@ -373,6 +385,7 @@ class SellerDashboardView(APIView):
                 "order_count": qs_orders.count(),
                 "processing_count": qs_orders.filter(status="processing").count(),
                 "shipped_count": qs_orders.filter(status="shipped").count(),
+                "completed_count": qs_orders.filter(status="completed").count(),
                 "low_stock_count": low,
                 "available_balance": seller_available_balance(user),
                 "unread_notifications": SellerNotification.objects.filter(
@@ -415,19 +428,24 @@ class SellerFinancePayoutsView(APIView):
         ser = SellerPayoutCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         amount = ser.validated_data["amount"]
-        avail = seller_available_balance(request.user)
-        if amount > avail:
-            return Response(
-                {"detail": "Jumlah melebihi saldo yang bisa dicairkan."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        p = SellerPayoutRequest.objects.create(seller=request.user, amount=amount)
+        User = get_user_model()
+        with db_transaction.atomic():
+            # Serialize concurrent payout requests per seller (double-tap / retries).
+            User.objects.select_for_update().get(pk=request.user.pk)
+            avail = seller_available_balance(request.user)
+            if amount > avail:
+                return Response(
+                    {"detail": "Jumlah melebihi saldo yang bisa dicairkan."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            p = SellerPayoutRequest.objects.create(seller=request.user, amount=amount)
         logger.info("payout_requested seller=%s amount=%s", request.user.pk, amount)
         return Response(SellerPayoutSerializer(p).data, status=status.HTTP_201_CREATED)
 
 
 class SellerFinanceEarningsExportView(APIView):
     permission_classes = [IsAuthenticated, IsApprovedSeller]
+    renderer_classes = [CsvTextRenderer]
 
     def get(self, request):
         qs = (
@@ -435,9 +453,8 @@ class SellerFinanceEarningsExportView(APIView):
             .select_related("order")
             .order_by("-created_at")[:2000]
         )
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = 'attachment; filename="mixera_seller_earnings.csv"'
-        w = csv.writer(response)
+        buf = io.StringIO()
+        w = csv.writer(buf)
         w.writerow(["id", "order_id", "gross", "fee", "net", "created_at"])
         for e in qs:
             w.writerow(
@@ -450,7 +467,11 @@ class SellerFinanceEarningsExportView(APIView):
                     e.created_at.isoformat(),
                 ]
             )
-        return response
+        return Response(
+            buf.getvalue(),
+            content_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="mixera_seller_earnings.csv"'},
+        )
 
 
 class SellerNotificationsView(APIView):

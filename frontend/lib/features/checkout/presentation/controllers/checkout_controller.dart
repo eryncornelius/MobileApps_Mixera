@@ -1,6 +1,7 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 
+import '../../../cart/data/datasources/cart_local_datasource.dart';
 import '../../../cart/presentation/controllers/cart_controller.dart';
 import '../../../profile/data/models/address_model.dart';
 import '../../../profile/presentation/controllers/profile_controller.dart';
@@ -29,6 +30,7 @@ final _paymentMethods = [
 class CheckoutController extends GetxController {
   final _ds = CheckoutRemoteDatasource();
   final _cardDs = CardPaymentRemoteDatasource();
+  final _cartQuoteDs = CartRemoteDatasource();
 
   final selectedAddressId = Rxn<int>();
   final selectedPaymentMethod = 'wallet'.obs;
@@ -48,7 +50,27 @@ class CheckoutController extends GetxController {
   final isLoadingSavedCards = false.obs;
   final selectedSavedCardId = Rxn<int>();
 
-  String get midtransClientKey => dotenv.env['MIDTRANS_CLIENT_KEY'] ?? '';
+  /// Baris teks ringkas (catatan API, berat) setelah [fetchShippingQuotePreview].
+  final shippingQuoteLines = <String>[].obs;
+  final isLoadingShippingQuote = false.obs;
+
+  /// Hasil tarif per kurir/layanan (urut dari termurah).
+  final shippingQuotes = <Map<String, dynamic>>[].obs;
+
+  /// null = pakai ongkir default server; selain itu = indeks ke [shippingQuotes].
+  final selectedShippingQuoteIndex = Rxn<int>();
+
+  /// Ongkir yang dikirim ke checkout (null → default server).
+  final selectedDeliveryFee = Rxn<int>();
+  static const int defaultDeliveryFee = 20000;
+  int get checkoutDeliveryFeeDisplay => selectedDeliveryFee.value ?? defaultDeliveryFee;
+
+  /// Tanpa spasi — .env seperti `KEY = value` sering menyisakan spasi di depan nilai.
+  String get midtransClientKey =>
+      (dotenv.env['MIDTRANS_CLIENT_KEY'] ?? '').trim();
+
+  bool get midtransIsSandbox =>
+      dotenv.env['MIDTRANS_IS_PRODUCTION']?.toLowerCase() != 'true';
 
   @override
   void onInit() {
@@ -57,8 +79,14 @@ class CheckoutController extends GetxController {
     // Pick immediately if already loaded, then keep watching for async load
     _pickDefaultAddress(profileC.addresses);
     ever(profileC.addresses, _pickDefaultAddress);
-    loadSavedCards();
-    _fetchWalletBalance();
+    ever(selectedAddressId, (_) {
+      selectedDeliveryFee.value = null;
+      shippingQuoteLines.clear();
+      shippingQuotes.clear();
+      selectedShippingQuoteIndex.value = null;
+    });
+    loadSavedCards(selectDefaultIfUnset: true);
+    refreshWalletBalance();
   }
 
   void _pickDefaultAddress(List<AddressModel> addresses) {
@@ -67,7 +95,8 @@ class CheckoutController extends GetxController {
     if (pick != null) selectedAddressId.value = pick.id;
   }
 
-  Future<void> _fetchWalletBalance() async {
+  /// Refetch wallet from API (e.g. after user topped up elsewhere; [onInit] also calls this).
+  Future<void> refreshWalletBalance() async {
     try {
       final wallet = await _walletDs.getWallet();
       walletBalance.value = wallet.balance;
@@ -76,13 +105,88 @@ class CheckoutController extends GetxController {
     }
   }
 
-  Future<void> loadSavedCards() async {
+  /// Ongkir ke alamat terpilih — isi [shippingQuotes] + pilihan default/indeks pertama.
+  Future<void> fetchShippingQuotePreview() async {
+    final addressId = selectedAddressId.value;
+    if (addressId == null) {
+      shippingQuoteLines.assignAll(['Pilih alamat pengiriman dulu.']);
+      return;
+    }
+    isLoadingShippingQuote.value = true;
+    shippingQuoteLines.clear();
+    shippingQuotes.clear();
+    selectedShippingQuoteIndex.value = null;
+    selectedDeliveryFee.value = null;
+    errorMessage = null;
+    try {
+      final m = await _cartQuoteDs.postShippingQuote(addressId: addressId);
+      final note = m['note'] as String? ?? '';
+      final raw = (m['quotes'] as List?) ?? [];
+      final w = m['estimated_weight_grams'];
+      final parsed = raw
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .where((q) => (q['price'] as num?) != null)
+          .toList();
+      parsed.sort((a, b) {
+        final pa = (a['price'] as num?)?.toInt() ?? 0;
+        final pb = (b['price'] as num?)?.toInt() ?? 0;
+        return pa.compareTo(pb);
+      });
+      shippingQuotes.assignAll(parsed);
+
+      if (parsed.isNotEmpty) {
+        selectedShippingQuoteIndex.value = 0;
+        selectedDeliveryFee.value = (parsed[0]['price'] as num).toInt();
+      }
+
+      shippingQuoteLines.assignAll([
+        'Berat estimasi: ${w ?? "?"} g',
+        note,
+        if (parsed.isEmpty)
+          'Tidak ada tarif kurir — checkout memakai ongkir default.',
+      ]);
+    } catch (e) {
+      selectedDeliveryFee.value = null;
+      selectedShippingQuoteIndex.value = null;
+      shippingQuotes.clear();
+      shippingQuoteLines.assignAll([e.toString().replaceFirst('Exception: ', '')]);
+    } finally {
+      isLoadingShippingQuote.value = false;
+    }
+  }
+
+  /// null = ongkir default server; [i] = tarif dari [shippingQuotes][i].
+  void selectShippingQuote(int? index) {
+    if (index == null) {
+      selectedShippingQuoteIndex.value = null;
+      selectedDeliveryFee.value = null;
+      return;
+    }
+    if (index < 0 || index >= shippingQuotes.length) return;
+    selectedShippingQuoteIndex.value = index;
+    final p = (shippingQuotes[index]['price'] as num?)?.toInt();
+    selectedDeliveryFee.value = p;
+  }
+
+  /// Refreshes saved cards from the API.
+  ///
+  /// When [selectDefaultIfUnset] is true (e.g. first open), picks the default
+  /// card only if nothing is selected yet. Otherwise we never overwrite a
+  /// deliberate `null` from "Use a new card" — the old behavior always
+  /// re-selected the default after every refresh and broke new-card checkout.
+  Future<void> loadSavedCards({bool selectDefaultIfUnset = false}) async {
     isLoadingSavedCards.value = true;
     try {
       savedCards.assignAll(await _cardDs.getSavedCards());
-      final defaultCard = savedCards.firstWhereOrNull((c) => c.isDefault);
-      if (defaultCard != null) {
-        selectedSavedCardId.value = defaultCard.id;
+      final sel = selectedSavedCardId.value;
+      if (sel != null && !savedCards.any((c) => c.id == sel)) {
+        selectedSavedCardId.value = null;
+      }
+      if (selectDefaultIfUnset && selectedSavedCardId.value == null) {
+        final defaultCard = savedCards.firstWhereOrNull((c) => c.isDefault);
+        if (defaultCard != null) {
+          selectedSavedCardId.value = defaultCard.id;
+        }
       }
     } catch (_) {
       // Silent — user can still pay with a new card
@@ -106,6 +210,7 @@ class CheckoutController extends GetxController {
         CheckoutRequestModel(
           addressId: addressId,
           paymentMethod: 'wallet',
+          deliveryFee: selectedDeliveryFee.value,
         ),
       );
       lastOrder.value = order;
@@ -143,6 +248,7 @@ class CheckoutController extends GetxController {
         CheckoutRequestModel(
           addressId: addressId,
           paymentMethod: 'card',
+          deliveryFee: selectedDeliveryFee.value,
         ),
       );
       lastOrder.value = order;
@@ -166,6 +272,7 @@ class CheckoutController extends GetxController {
     String cardToken = '',
     int? savedCardId,
     bool saveCard = false,
+    bool retryThreeDs = false,
   }) async {
     isChargingCard.value = true;
     errorMessage = null;
@@ -175,6 +282,7 @@ class CheckoutController extends GetxController {
         cardToken: cardToken,
         savedCardId: savedCardId,
         saveCard: saveCard,
+        retryThreeDs: retryThreeDs,
       );
 
       if (result.isFailed) {
@@ -183,6 +291,18 @@ class CheckoutController extends GetxController {
       }
 
       return result;
+    } on CardChargeApiException catch (e) {
+      if (e.shouldUseNewCard) {
+        // Saved token is no longer usable. Reset selection so next attempt
+        // naturally goes through new-card tokenize flow.
+        selectedSavedCardId.value = null;
+        errorMessage = 'Saved card is no longer valid. Please use a new card.';
+        // Refresh list in case backend removed or invalidated the card record.
+        loadSavedCards();
+      } else {
+        errorMessage = e.message;
+      }
+      return null;
     } catch (e) {
       errorMessage = e.toString().replaceFirst('Exception: ', '');
       return null;

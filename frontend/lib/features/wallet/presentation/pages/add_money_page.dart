@@ -1,12 +1,27 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/route_names.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../checkout/data/datasources/card_payment_remote_datasource.dart';
+import '../../../checkout/data/models/saved_card_model.dart';
+import '../../../checkout/presentation/controllers/checkout_controller.dart';
+import '../../../checkout/presentation/pages/card_3ds_page.dart';
+import '../../../checkout/presentation/pages/card_tokenize_page.dart';
 import '../controllers/wallet_controller.dart';
-import 'snap_webview_page.dart';
+
+sealed class _CardTopUpPick {}
+
+final class _CardTopUpPickNew extends _CardTopUpPick {}
+
+final class _CardTopUpPickSaved extends _CardTopUpPick {
+  _CardTopUpPickSaved(this.id);
+  final int id;
+}
 
 class AddMoneyPage extends StatefulWidget {
   const AddMoneyPage({super.key});
@@ -25,48 +40,208 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
     super.dispose();
   }
 
-  Future<void> _onContinue() async {
+  int? _validatedTopUpAmount() {
     final raw = _amountController.text.replaceAll('.', '').trim();
     final amount = int.tryParse(raw);
-
     if (amount == null || amount < 10000) {
       setState(() => _errorText = 'Minimum top-up is Rp 10.000');
-      return;
+      return null;
     }
     setState(() => _errorText = null);
+    return amount;
+  }
+
+  Future<void> _onCardTopUp() async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Top-up dengan kartu hanya didukung di aplikasi mobile.'),
+        ),
+      );
+      return;
+    }
+
+    final amount = _validatedTopUpAmount();
+    if (amount == null) return;
+
+    final cardDs = CardPaymentRemoteDatasource();
+    List<SavedCardModel> cards = [];
+    try {
+      cards = await cardDs.getSavedCards();
+    } catch (_) {
+      cards = [];
+    }
+    if (!mounted) return;
+
+    int? savedCardId;
+    var useNewCard = cards.isEmpty;
+
+    if (!useNewCard) {
+      final pick = await showModalBottomSheet<_CardTopUpPick>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text('Bayar dengan kartu', style: AppTextStyles.section),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.add_card_outlined),
+                title: const Text('Kartu baru'),
+                onTap: () => Navigator.pop(ctx, _CardTopUpPickNew()),
+              ),
+              for (final c in cards)
+                ListTile(
+                  leading: const Icon(Icons.credit_card),
+                  title: Text(c.displayLabel),
+                  onTap: () => Navigator.pop(ctx, _CardTopUpPickSaved(c.id)),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Batal'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!mounted || pick == null) return;
+      switch (pick) {
+        case _CardTopUpPickNew():
+          useNewCard = true;
+        case _CardTopUpPickSaved(:final id):
+          savedCardId = id;
+      }
+    }
+
+    String cardToken = '';
+    var saveCard = false;
+    if (useNewCard) {
+      final clientKey = (dotenv.env['MIDTRANS_CLIENT_KEY'] ?? '').trim();
+      final isSandbox =
+          dotenv.env['MIDTRANS_IS_PRODUCTION']?.toLowerCase() != 'true';
+      final tokenResult = await Navigator.pushNamed<CardTokenResult?>(
+        context,
+        RouteNames.cardTokenize,
+        arguments: CardTokenizeArgs(
+          clientKey: clientKey,
+          total: amount,
+          isSandbox: isSandbox,
+        ),
+      );
+      if (!mounted || tokenResult == null) return;
+      cardToken = tokenResult.tokenId;
+      saveCard = tokenResult.saveCard;
+    }
 
     final walletC = Get.find<WalletController>();
-    final result = await walletC.createTopUp(amount);
-    if (result == null) return;
-
-    final orderId = result['order_id'] as String? ?? '';
-    final snapToken = result['snap_token'] as String? ?? '';
-
-    if (!mounted) return;
-
-    // Launch Midtrans Snap WebView and wait for the payment result
-    final status = await Navigator.pushNamed(
-      context,
-      RouteNames.snapWebView,
-      arguments: SnapWebViewArgs(snapToken: snapToken, orderId: orderId),
+    var chargeResult = await walletC.chargeWalletWithCard(
+      amount: amount,
+      cardToken: cardToken,
+      savedCardId: savedCardId,
+      saveCard: saveCard,
     );
-
     if (!mounted) return;
+    if (chargeResult == null) return;
 
-    if (status == 'settlement' || status == 'capture') {
+    var didRetryThreeDs = false;
+    while (chargeResult != null && chargeResult.needs3DS) {
+      final dsResult = await Navigator.pushNamed<Card3DSResult?>(
+        context,
+        RouteNames.card3DS,
+        arguments: Card3DSArgs(
+          redirectUrl: chargeResult.redirectUrl!,
+          midtransOrderId: chargeResult.midtransOrderId,
+        ),
+      );
+      if (!mounted) return;
+
+      if (dsResult == Card3DSResult.success) {
+        await walletC.refresh();
+        if (Get.isRegistered<CheckoutController>()) {
+          await Get.find<CheckoutController>().refreshWalletBalance();
+        }
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => _SuccessDialog(amount: amount),
+        );
+        return;
+      }
+      if (dsResult == Card3DSResult.cancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pembayaran dibatalkan.'),
+            backgroundColor: AppColors.secondaryText,
+          ),
+        );
+        return;
+      }
+      if (dsResult == Card3DSResult.staleRedirect && !didRetryThreeDs) {
+        didRetryThreeDs = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sesi verifikasi kedaluwarsa. Memuat halaman 3DS baru…'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        chargeResult = await walletC.chargeWalletWithCard(
+          amount: amount,
+          cardToken: cardToken,
+          savedCardId: savedCardId,
+          saveCard: saveCard,
+          retryThreeDs: true,
+        );
+        if (!mounted) return;
+        if (chargeResult == null) return;
+        continue;
+      }
+      if (dsResult == Card3DSResult.failed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pembayaran ditolak setelah verifikasi.'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+        return;
+      }
+      if (dsResult == Card3DSResult.pending) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Status belum pasti. Saldo akan terisi jika pembayaran berhasil.',
+            ),
+            backgroundColor: AppColors.secondaryText,
+          ),
+        );
+        return;
+      }
+      return;
+    }
+
+    if (chargeResult != null && chargeResult.isSuccess) {
+      await walletC.refresh();
+      if (Get.isRegistered<CheckoutController>()) {
+        await Get.find<CheckoutController>().refreshWalletBalance();
+      }
+      if (!mounted) return;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (_) => _SuccessDialog(amount: amount),
       );
-    } else if (status != 'cancelled') {
+    } else if (chargeResult != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            status == 'pending'
-                ? 'Payment is being processed. Your wallet will update shortly.'
-                : 'Payment was not completed.',
-          ),
+        const SnackBar(
+          content: Text('Pembayaran tidak selesai.'),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -114,19 +289,28 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
-              Obx(() => ElevatedButton(
-                    onPressed: walletC.isCreatingTransaction.value
-                        ? null
-                        : _onContinue,
-                    child: walletC.isCreatingTransaction.value
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(color: Colors.white),
-                          )
-                        : const Text('Continue'),
-                  )),
+              const SizedBox(height: 12),
+              Text(
+                'Metode pembayaran',
+                style: AppTextStyles.description,
+              ),
+              const SizedBox(height: 12),
+              Obx(() {
+                final busy = walletC.isCreatingTransaction.value;
+                return ElevatedButton(
+                  onPressed: busy ? null : _onCardTopUp,
+                  child: busy
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Kartu debit / kredit (termasuk tersimpan)'),
+                );
+              }),
             ],
           ),
         ),

@@ -31,4 +31,11 @@ class RouteNames {
   static const cardTokenize = '/checkout/card-tokenize';
   static const card3DS = '/checkout/card-3ds';
   static const wardrobe = '/wardrobe';
+
+  static const sellerShell = '/seller';
+  static const mixMatch = '/mix-match';
+  static const wishlist = '/wishlist';
+  static const savedOutfits = '/saved-outfits';
+  static const savedTryOnPhotos = '/saved-tryon-photos';
+  static const personPhotosTryOn = '/profile/person-photos-tryon';
 }

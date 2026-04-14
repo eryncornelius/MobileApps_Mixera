@@ -37,6 +37,9 @@ class OrderSummaryCard extends StatelessWidget {
         color: AppColors.softWhite,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         children: [

@@ -59,7 +59,7 @@ class RecommendedSection extends StatelessWidget {
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 0.75,
+            childAspectRatio: 0.58,
           ),
           itemCount: items.length,
           itemBuilder: (context, index) {
@@ -75,7 +75,8 @@ class RecommendedSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
+                    AspectRatio(
+                      aspectRatio: 1.0,
                       child: ClipRRect(
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(14),
@@ -95,10 +96,11 @@ class RecommendedSection extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             item.name,
@@ -120,6 +122,7 @@ class RecommendedSection extends StatelessWidget {
                         ],
                       ),
                     ),
+                  ),
                   ],
                 ),
               ),

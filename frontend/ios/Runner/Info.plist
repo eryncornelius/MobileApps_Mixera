@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>MIXÉRA memakai Face ID atau Touch ID hanya untuk membuka aplikasi setelah Anda login.</string>
 </dict>
 </plist>

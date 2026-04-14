@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../app/routes/route_names.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../data/models/order_status_model.dart';
@@ -19,16 +20,35 @@ class OrdersPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 16),
-            // Logo
-            Text(
-              'MIXÉRA',
-              style: AppTextStyles.logo.copyWith(
-                color: AppColors.blushPink,
-                letterSpacing: 2,
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        Navigator.pushReplacementNamed(context, RouteNames.mainShell);
+                      }
+                    },
+                    child: const Icon(Icons.chevron_left_rounded,
+                        size: 28, color: AppColors.primaryText),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'MIXÉRA',
+                        style: AppTextStyles.logo
+                            .copyWith(color: AppColors.blushPink, letterSpacing: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 28),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
             // Main white card
             Expanded(
               child: Container(

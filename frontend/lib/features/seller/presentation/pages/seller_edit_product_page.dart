@@ -22,6 +22,9 @@ class SellerEditProductPage extends StatefulWidget {
 class _SellerEditProductPageState extends State<SellerEditProductPage> {
   late final TextEditingController _name;
   late final TextEditingController _price;
+  late final TextEditingController _discountPrice;
+  late final TextEditingController _color;
+  late final TextEditingController _desc;
   final List<TextEditingController> _variantStockCtrls = [];
   late bool _active;
   bool _loadingDetail = true;
@@ -39,6 +42,9 @@ class _SellerEditProductPageState extends State<SellerEditProductPage> {
     final p = widget.product;
     _name = TextEditingController(text: p.name);
     _price = TextEditingController(text: '${p.price}');
+    _discountPrice = TextEditingController();
+    _color = TextEditingController();
+    _desc = TextEditingController();
     _active = p.isActive;
     _fetchDetail();
   }
@@ -68,6 +74,9 @@ class _SellerEditProductPageState extends State<SellerEditProductPage> {
       _detail = d;
       _name.text = d.name;
       _price.text = '${d.price}';
+      _discountPrice.text = d.discountPrice != null ? '${d.discountPrice}' : '';
+      _color.text = d.color;
+      _desc.text = d.description;
       _active = d.isActive;
       _loadingDetail = false;
     });
@@ -77,6 +86,9 @@ class _SellerEditProductPageState extends State<SellerEditProductPage> {
   void dispose() {
     _name.dispose();
     _price.dispose();
+    _discountPrice.dispose();
+    _color.dispose();
+    _desc.dispose();
     for (final c in _variantStockCtrls) {
       c.dispose();
     }
@@ -175,6 +187,16 @@ class _SellerEditProductPageState extends State<SellerEditProductPage> {
       return;
     }
 
+    final discountRaw = _discountPrice.text.trim().replaceAll(RegExp(r'\D'), '');
+    final discountPrice = discountRaw.isEmpty ? null : int.tryParse(discountRaw);
+    final clearDiscount = discountRaw.isEmpty && (_detail?.discountPrice != null);
+    if (discountRaw.isNotEmpty && (discountPrice == null || discountPrice >= price)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Harga diskon harus lebih kecil dari harga normal.')),
+      );
+      return;
+    }
+
     final detail = _detail;
     List<Map<String, int>>? variantStocks;
     if (detail != null && detail.variants.isNotEmpty) {
@@ -203,6 +225,10 @@ class _SellerEditProductPageState extends State<SellerEditProductPage> {
         id: widget.product.id,
         name: name,
         price: price,
+        discountPrice: discountPrice,
+        clearDiscountPrice: clearDiscount,
+        description: _desc.text.trim(),
+        color: _color.text.trim(),
         isActive: _active,
         variantStocks: variantStocks,
         imageUrl: _pendingImageUrl,
@@ -363,6 +389,29 @@ class _SellerEditProductPageState extends State<SellerEditProductPage> {
                                   controller: _price,
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'Harga (Rp)'),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _discountPrice,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Harga diskon (Rp) — opsional',
+                                    hintText: 'Kosongkan untuk hapus diskon',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _color,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Warna — opsional',
+                                    hintText: 'Contoh: Hitam, Navy Blue',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _desc,
+                                  maxLines: 3,
+                                  decoration: const InputDecoration(labelText: 'Deskripsi'),
                                 ),
                               ],
                             ),

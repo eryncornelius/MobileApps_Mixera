@@ -122,6 +122,21 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     try {
       final saved = await Get.find<ShopController>().toggleWishlistByProduct(p.id);
       if (!mounted) return;
+      Get.snackbar(
+        '',
+        saved ? 'Ditambahkan ke wishlist' : 'Dihapus dari wishlist',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.softWhite,
+        colorText: AppColors.primaryText,
+        duration: const Duration(milliseconds: 1500),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+        icon: Icon(
+          saved ? Icons.favorite : Icons.favorite_border_rounded,
+          color: AppColors.blushPink,
+          size: 20,
+        ),
+      );
       setState(() {
         _product = ProductDetailModel(
           id: p.id,

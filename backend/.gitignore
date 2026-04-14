@@ -1,9 +1,21 @@
+# Rahasia & lingkungan lokal (template .env.example harus tetap di-commit)
+.env
 *.env
+!.env.example
+
 __pycache__/
 *.pyc
+*.pyo
+.Python
+venv/
+.venv/
 build/
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub/
+media/
+
+# SQLite lokal & cadangan
+*.sqlite3
+*.sqlite3-journal
+
+# Service account / kunci (jangan commit file asli)
+mixera-b0085-firebase-adminsdk-fbsvc-8b6e4b5c04.json
+*-firebase-adminsdk-*.json

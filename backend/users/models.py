@@ -23,6 +23,9 @@ class User(AbstractUser):
     facebook_id = models.CharField(max_length=255, blank=True, null=True)
     is_email_verified = models.BooleanField(default=False)
 
+    # Seller marketplace: diaktifkan admin (Django admin / MAP internal).
+    is_seller = models.BooleanField(default=False)
+
     ai_tokens = models.IntegerField(default=5)
     is_premium = models.BooleanField(default=False)
     premium_until = models.DateTimeField(null=True, blank=True)
@@ -109,3 +112,41 @@ class NotificationSettings(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - NotificationSettings"
+
+
+class FcmToken(models.Model):
+    PLATFORM_CHOICES = [('android', 'Android'), ('ios', 'iOS')]
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='fcm_tokens'
+    )
+    token = models.TextField(unique=True)
+    platform = models.CharField(max_length=10, choices=PLATFORM_CHOICES, default='android')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.platform}"
+
+
+class UserNotification(models.Model):
+    TYPE_CHOICES = [
+        ('order', 'Order'),
+        ('promo', 'Promo'),
+        ('security', 'Security'),
+        ('reminder', 'Reminder'),
+        ('system', 'System'),
+    ]
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='notifications'
+    )
+    notif_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='system')
+    title = models.CharField(max_length=120)
+    body = models.TextField()
+    is_read = models.BooleanField(default=False)
+    payload = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.title}"

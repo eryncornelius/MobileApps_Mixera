@@ -20,9 +20,11 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/saved_addresses_page.dart';
+import '../../features/profile/presentation/pages/person_photos_page.dart';
 import '../../features/profile/presentation/pages/saved_try_on_photos_page.dart';
 import '../../features/profile/presentation/pages/security_page.dart';
 import '../../features/profile/presentation/pages/wishlist_page.dart';
+import '../../features/mix_match/presentation/pages/mix_match_page.dart';
 import '../../features/mix_match/presentation/pages/saved_outfits_page.dart';
 import '../../features/shop/presentation/pages/product_detail_page.dart';
 import '../../features/shop/presentation/pages/search_page.dart';
@@ -172,6 +174,9 @@ class AppRouter {
       case RouteNames.wardrobe:
         return MaterialPageRoute(builder: (_) => const WardrobePage());
 
+      case RouteNames.mixMatch:
+        return MaterialPageRoute(builder: (_) => const MixMatchPage());
+
       case RouteNames.wishlist:
         return MaterialPageRoute(builder: (_) => const WishlistPage());
 
@@ -180,6 +185,9 @@ class AppRouter {
 
       case RouteNames.savedTryOnPhotos:
         return MaterialPageRoute(builder: (_) => const SavedTryOnPhotosPage());
+
+      case RouteNames.personPhotosTryOn:
+        return MaterialPageRoute(builder: (_) => const PersonPhotosPage());
 
       default:
         return MaterialPageRoute(

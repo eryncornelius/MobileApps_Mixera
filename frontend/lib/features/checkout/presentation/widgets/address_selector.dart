@@ -26,6 +26,9 @@ class AddressSelector extends StatelessWidget {
             color: AppColors.softWhite,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+            ],
           ),
           child: Text('No saved addresses. Add one in Profile.', style: AppTextStyles.description),
         );
@@ -79,7 +82,7 @@ class AddressSelector extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.roseMist : AppColors.softWhite,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isSelected ? AppColors.blushPink : AppColors.border,
                     ),
@@ -117,6 +120,9 @@ class _AddressCard extends StatelessWidget {
         color: AppColors.softWhite,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
       ),
       child: Row(
         children: [

@@ -1,10 +1,24 @@
+import re
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Address, NotificationSettings
+from .models import Address, FcmToken, NotificationSettings, UserNotification
 User = get_user_model()
 
+
+def validate_password_strength(value):
+    if len(value) < 8:
+        raise serializers.ValidationError("Password must be at least 8 characters.")
+    if not re.search(r'\d', value):
+        raise serializers.ValidationError("Password must include at least one number.")
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+        raise serializers.ValidationError("Password must include at least one symbol (!@#$...).")
+    if not re.search(r'[a-z]', value) or not re.search(r'[A-Z]', value):
+        raise serializers.ValidationError("Password must include both uppercase and lowercase letters.")
+    return value
+
+
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=6)
+    password = serializers.CharField(write_only=True, validators=[validate_password_strength])
 
     class Meta:
         model = User
@@ -35,6 +49,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             'username',
             'phone_number',
             'is_email_verified',
+            'is_seller',
             'ai_tokens',
             'is_premium',
             'premium_until',
@@ -68,8 +83,8 @@ class ForgotPasswordSerializer(serializers.Serializer):
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.CharField(max_length=4)
-    new_password = serializers.CharField(write_only=True, min_length=6)
-    confirm_password = serializers.CharField(write_only=True, min_length=6)
+    new_password = serializers.CharField(write_only=True, validators=[validate_password_strength])
+    confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
@@ -80,6 +95,8 @@ class ResetPasswordSerializer(serializers.Serializer):
 # Section : Profile
 
 class ProfileSerializer(serializers.ModelSerializer):
+    seller_store_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = (
@@ -89,9 +106,15 @@ class ProfileSerializer(serializers.ModelSerializer):
             "phone_number",
             "auth_provider",
             "is_email_verified",
+            "is_seller",
+            "seller_store_name",
             "is_premium",
             "premium_until",
         )
+
+    def get_seller_store_name(self, obj):
+        profile = getattr(obj, "seller_profile", None)
+        return profile.store_name if profile else ""
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
@@ -113,7 +136,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
     
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True, min_length=6)
+    new_password = serializers.CharField(write_only=True, validators=[validate_password_strength])
 
     def validate(self, attrs):
         user = self.context["request"].user
@@ -157,3 +180,16 @@ class NotificationSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = NotificationSettings
         fields = ("order_updates", "promotions", "security_alerts", "daily_reminders")
+
+
+# User Notifications
+class UserNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserNotification
+        fields = ("id", "notif_type", "title", "body", "is_read", "payload", "created_at")
+        read_only_fields = ("id", "notif_type", "title", "body", "payload", "created_at")
+
+
+class FcmTokenSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    platform = serializers.ChoiceField(choices=FcmToken.PLATFORM_CHOICES, default='android')

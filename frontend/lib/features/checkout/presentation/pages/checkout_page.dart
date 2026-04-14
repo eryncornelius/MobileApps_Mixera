@@ -6,6 +6,7 @@ import '../../../../app/routes/route_names.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../cart/presentation/controllers/cart_controller.dart';
+import '../../../wallet/presentation/controllers/wallet_controller.dart';
 import '../controllers/checkout_controller.dart';
 import '../widgets/address_selector.dart';
 import '../widgets/order_summary_card.dart';
@@ -13,8 +14,24 @@ import '../widgets/payment_method_selector.dart';
 import 'card_3ds_page.dart';
 import 'card_tokenize_page.dart';
 
-class CheckoutPage extends StatelessWidget {
+class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
+
+  @override
+  State<CheckoutPage> createState() => _CheckoutPageState();
+}
+
+class _CheckoutPageState extends State<CheckoutPage> {
+  @override
+  void initState() {
+    super.initState();
+    // CheckoutController keeps wallet from first onInit; refresh when user re-opens
+    // checkout after topping up wallet elsewhere.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Get.find<CheckoutController>().refreshWalletBalance();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +88,9 @@ class CheckoutPage extends StatelessWidget {
                         color: AppColors.softWhite,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+                        ],
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: Column(
@@ -131,6 +151,126 @@ class CheckoutPage extends StatelessWidget {
                     Text('Shipping Address', style: AppTextStyles.section),
                     const SizedBox(height: 10),
                     const AddressSelector(),
+                    const SizedBox(height: 8),
+                    Obx(() {
+                      final busy = checkoutC.isLoadingShippingQuote.value;
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: busy ? null : () => checkoutC.fetchShippingQuotePreview(),
+                          child: Text(
+                            busy ? 'Memuat ongkir…' : 'Cek ongkir & pilihan kurir',
+                            style: AppTextStyles.small.copyWith(color: AppColors.blushPink),
+                          ),
+                        ),
+                      );
+                    }),
+                    Obx(() {
+                      final lines = checkoutC.shippingQuoteLines;
+                      if (lines.isEmpty) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.softWhite,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.border),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: lines
+                                .map((l) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Text(l, style: AppTextStyles.small),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      );
+                    }),
+                    Obx(() {
+                      final quotes = checkoutC.shippingQuotes;
+                      if (quotes.isEmpty) return const SizedBox.shrink();
+                      final busy = checkoutC.isLoadingShippingQuote.value;
+                      final gv = checkoutC.selectedShippingQuoteIndex.value ?? -1;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+                            Text('Ekspedisi', style: AppTextStyles.section),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Pilih layanan — total checkout mengikuti ongkir ini.',
+                              style: AppTextStyles.small,
+                            ),
+                            const SizedBox(height: 4),
+                            RadioGroup<int>(
+                              groupValue: gv,
+                              onChanged: (int? v) {
+                                if (busy) return;
+                                if (v == null) return;
+                                if (v == -1) {
+                                  checkoutC.selectShippingQuote(null);
+                                } else {
+                                  checkoutC.selectShippingQuote(v);
+                                }
+                              },
+                              child: Column(
+                                children: [
+                                  RadioListTile<int>(
+                                    contentPadding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    value: -1,
+                                    title: Text(
+                                      'Ongkir default ${_fmt(CheckoutController.defaultDeliveryFee)}',
+                                      style: AppTextStyles.description,
+                                    ),
+                                    subtitle: Text(
+                                      'Tanpa tarif dari daftar kurir',
+                                      style: AppTextStyles.small,
+                                    ),
+                                  ),
+                                  ...List.generate(quotes.length, (i) {
+                                    final q = quotes[i];
+                                    final c = q['courier']?.toString() ?? '';
+                                    final s = q['service']?.toString() ?? '';
+                                    final p = (q['price'] as num?)?.toInt() ?? 0;
+                                    final dur = q['duration']?.toString() ?? '';
+                                    final days = q['eta_days'];
+                                    String eta = dur;
+                                    if (eta.isEmpty && days is int && days > 0) {
+                                      eta = '~$days hari';
+                                    }
+                                    final sub = eta.isNotEmpty ? '$eta · ' : '';
+                                    return RadioListTile<int>(
+                                      contentPadding: EdgeInsets.zero,
+                                      visualDensity: VisualDensity.compact,
+                                      value: i,
+                                      title: Text(
+                                        '$c · $s',
+                                        style: AppTextStyles.description,
+                                      ),
+                                      subtitle: Text(
+                                        '$sub${_fmt(p)}',
+                                        style: AppTextStyles.small,
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                     const SizedBox(height: 24),
 
                     Text('Payment Method', style: AppTextStyles.section),
@@ -138,7 +278,12 @@ class CheckoutPage extends StatelessWidget {
                     const PaymentMethodSelector(),
                     const SizedBox(height: 24),
 
-                    OrderSummaryCard(subtotal: cartC.total),
+                    Obx(
+                      () => OrderSummaryCard(
+                        subtotal: cartC.total,
+                        deliveryFee: checkoutC.checkoutDeliveryFeeDisplay,
+                      ),
+                    ),
                     const SizedBox(height: 24),
 
                     // Confirm & Pay button
@@ -194,12 +339,21 @@ class CheckoutPage extends StatelessWidget {
       final success = await checkoutC.placeOrder();
       if (!context.mounted) return;
       if (success) {
+        await _refreshWalletAfterCheckout(checkoutC);
+        if (!context.mounted) return;
         Navigator.pushReplacementNamed(context, RouteNames.purchaseComplete);
       } else {
         _showError(context, checkoutC.errorMessage);
       }
     } else {
       await _handleCardPayment(context, checkoutC);
+    }
+  }
+
+  Future<void> _refreshWalletAfterCheckout(CheckoutController checkoutC) async {
+    await checkoutC.refreshWalletBalance();
+    if (Get.isRegistered<WalletController>()) {
+      await Get.find<WalletController>().refresh();
     }
   }
 
@@ -231,6 +385,7 @@ class CheckoutPage extends StatelessWidget {
         arguments: CardTokenizeArgs(
           clientKey: checkoutC.midtransClientKey,
           total: order.total,
+          isSandbox: checkoutC.midtransIsSandbox,
         ),
       );
 
@@ -251,8 +406,8 @@ class CheckoutPage extends StatelessWidget {
     }
     // Saved card — backend resolves saved_token_id from savedCardId directly.
 
-    // Step 3: Charge
-    final chargeResult = await checkoutC.chargeCardRaw(
+    // Step 3–4: Charge + 3DS (satu kali retry jika URL 3DS sudah tidak valid / kedaluwarsa)
+    var chargeResult = await checkoutC.chargeCardRaw(
       orderId: order.id,
       cardToken: cardToken,
       savedCardId: savedCardId,
@@ -265,8 +420,8 @@ class CheckoutPage extends StatelessWidget {
       return;
     }
 
-    // Step 4: 3DS if required
-    if (chargeResult.needs3DS) {
+    var didRetryThreeDs = false;
+    while (chargeResult != null && chargeResult.needs3DS) {
       final dsResult = await Navigator.pushNamed<Card3DSResult?>(
         context,
         RouteNames.card3DS,
@@ -279,26 +434,75 @@ class CheckoutPage extends StatelessWidget {
 
       if (dsResult == Card3DSResult.success) {
         checkoutC.clearCardOrder();
-        checkoutC.loadSavedCards(); // Reload after 3DS — backend saved the card by now
+        checkoutC.loadSavedCards();
         Navigator.pushReplacementNamed(context, RouteNames.purchaseComplete);
-      } else if (dsResult == Card3DSResult.cancelled) {
+        return;
+      }
+      if (dsResult == Card3DSResult.cancelled) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Payment cancelled. Your order was not charged.'),
             backgroundColor: AppColors.secondaryText,
           ),
         );
-      } else {
-        _showError(context, 'Card authentication failed. Please try again.');
+        return;
       }
+      if (dsResult == Card3DSResult.staleRedirect && !didRetryThreeDs) {
+        didRetryThreeDs = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sesi verifikasi kedaluwarsa. Memuat halaman 3DS baru…'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        chargeResult = await checkoutC.chargeCardRaw(
+          orderId: order.id,
+          cardToken: cardToken,
+          savedCardId: savedCardId,
+          saveCard: saveCard,
+          retryThreeDs: true,
+        );
+        if (!context.mounted) return;
+        if (chargeResult == null) {
+          _showError(context, checkoutC.errorMessage);
+          return;
+        }
+        continue;
+      }
+      if (dsResult == Card3DSResult.failed) {
+        _showError(
+            context, 'Pembayaran ditolak setelah verifikasi. Coba lagi atau kartu lain.');
+        return;
+      }
+      if (dsResult == Card3DSResult.pending) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Status belum pasti. Tunggu beberapa saat lalu cek di menu Pesanan.',
+            ),
+            backgroundColor: AppColors.secondaryText,
+          ),
+        );
+        return;
+      }
+      if (dsResult == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Verifikasi ditutup. Pembayaran mungkin belum selesai.'),
+            backgroundColor: AppColors.secondaryText,
+          ),
+        );
+        return;
+      }
+      _showError(context, 'Verifikasi kartu gagal. Coba lagi.');
       return;
     }
 
-    // No 3DS needed — immediate capture/settlement
-    if (chargeResult.isSuccess) {
+    if (chargeResult != null && chargeResult.isSuccess) {
       checkoutC.clearCardOrder();
+      checkoutC.loadSavedCards();
       Navigator.pushReplacementNamed(context, RouteNames.purchaseComplete);
-    } else {
+    } else if (chargeResult != null) {
       _showError(context, 'Card payment was declined. Please try a different card.');
     }
   }

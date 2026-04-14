@@ -9,12 +9,36 @@ class CreateSnapTransactionSerializer(serializers.Serializer):
 
 
 class CardChargeSerializer(serializers.Serializer):
-    django_order_id = serializers.IntegerField()
+    CHARGE_PURPOSE_SHOP = "shop_order"
+    CHARGE_PURPOSE_WALLET = "wallet_topup"
+
+    charge_purpose = serializers.ChoiceField(
+        choices=[
+            (CHARGE_PURPOSE_SHOP, "Shop order"),
+            (CHARGE_PURPOSE_WALLET, "Wallet top up"),
+        ],
+        default=CHARGE_PURPOSE_SHOP,
+    )
+    django_order_id = serializers.IntegerField(required=False, allow_null=True)
+    amount = serializers.IntegerField(required=False, min_value=1000)
     card_token = serializers.CharField(required=False, allow_blank=True, default="")
     saved_card_id = serializers.IntegerField(required=False, allow_null=True, default=None)
     save_card = serializers.BooleanField(default=False)
+    # Batalkan pending 3DS lalu charge ulang (URL redirect Midtrans sekali pakai).
+    retry_three_ds = serializers.BooleanField(default=False)
 
     def validate(self, attrs):
+        purpose = attrs.get("charge_purpose") or self.CHARGE_PURPOSE_SHOP
+        if purpose == self.CHARGE_PURPOSE_SHOP:
+            if attrs.get("django_order_id") is None:
+                raise serializers.ValidationError(
+                    {"django_order_id": "Required for shop order payment."}
+                )
+        else:
+            if attrs.get("amount") is None:
+                raise serializers.ValidationError(
+                    {"amount": "Required for wallet top-up."}
+                )
         if not attrs.get("card_token") and not attrs.get("saved_card_id"):
             raise serializers.ValidationError(
                 "Either card_token or saved_card_id must be provided."
@@ -25,8 +49,24 @@ class CardChargeSerializer(serializers.Serializer):
 class SavedCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedCard
-        fields = ["id", "card_brand", "masked_card", "is_default", "created_at"]
-        read_only_fields = ["id", "card_brand", "masked_card", "is_default", "created_at"]
+        fields = [
+            "id",
+            "card_brand",
+            "masked_card",
+            "expiry_month",
+            "expiry_year",
+            "is_default",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "card_brand",
+            "masked_card",
+            "expiry_month",
+            "expiry_year",
+            "is_default",
+            "created_at",
+        ]
 
 
 class PaymentTransactionSerializer(serializers.Serializer):

@@ -24,15 +24,17 @@ class CardTokenResult {
   const CardTokenResult({required this.tokenId, required this.saveCard});
 }
 
-// Formats card number with spaces every 4 digits (max 16 digits).
+// Formats card number with spaces every 4 digits (max 19 digits — BIN panjang / beberapa debit).
 class _CardNumberFormatter extends TextInputFormatter {
+  static const int _maxDigits = 19;
+
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
     final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 16) return oldValue;
+    if (digits.length > _maxDigits) return oldValue;
     final buffer = StringBuffer();
     for (int i = 0; i < digits.length; i++) {
       if (i > 0 && i % 4 == 0) buffer.write(' ');
@@ -52,6 +54,15 @@ class CardTokenizePage extends StatefulWidget {
 
   @override
   State<CardTokenizePage> createState() => _CardTokenizePageState();
+}
+
+String _midtransErrorMessage(Map<String, dynamic>? data) {
+  if (data == null) return 'Tokenization failed.';
+  final msgs = data['validation_messages'];
+  if (msgs is List && msgs.isNotEmpty) {
+    return msgs.map((e) => e.toString()).join(' ');
+  }
+  return (data['status_message'] as String?) ?? 'Tokenization failed.';
 }
 
 class _CardTokenizePageState extends State<CardTokenizePage> {
@@ -80,6 +91,15 @@ class _CardTokenizePageState extends State<CardTokenizePage> {
       _error = null;
     });
 
+    final clientKey = widget.args.clientKey.trim();
+    if (clientKey.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'Midtrans client key kosong. Periksa MIDTRANS_CLIENT_KEY di .env.';
+      });
+      return;
+    }
+
     final baseUrl = widget.args.isSandbox
         ? 'https://api.sandbox.midtrans.com'
         : 'https://api.midtrans.com';
@@ -88,14 +108,20 @@ class _CardTokenizePageState extends State<CardTokenizePage> {
     // never through the merchant backend.
     final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
     try {
+      final monthRaw = _expMonthCtrl.text.trim();
+      final monthInt = int.tryParse(monthRaw);
+      final cardExpMonth =
+          monthInt != null ? monthInt.toString().padLeft(2, '0') : monthRaw;
+      final cardExpYear = _expYearCtrl.text.trim();
+
       final response = await dio.get<Map<String, dynamic>>(
         '$baseUrl/v2/token',
         queryParameters: {
-          'card_number': _cardNumberCtrl.text.replaceAll(' ', ''),
-          'card_exp_month': _expMonthCtrl.text.trim(),
-          'card_exp_year': _expYearCtrl.text.trim(),
+          'card_number': _cardNumberCtrl.text.replaceAll(RegExp(r'\D'), ''),
+          'card_exp_month': cardExpMonth,
+          'card_exp_year': cardExpYear,
           'card_cvv': _cvvCtrl.text.trim(),
-          'client_key': widget.args.clientKey,
+          'client_key': clientKey,
         },
       );
       final data = response.data;
@@ -107,15 +133,15 @@ class _CardTokenizePageState extends State<CardTokenizePage> {
         if (mounted) Navigator.pop(context, result);
       } else {
         setState(() {
-          _error = (data?['status_message'] as String?) ?? 'Tokenization failed.';
+          _error = _midtransErrorMessage(data);
         });
       }
     } on DioException catch (e) {
-      final serverMsg = e.response?.data is Map
-          ? e.response!.data['status_message'] as String?
-          : null;
+      final body = e.response?.data;
       setState(() {
-        _error = serverMsg ?? 'Network error. Please try again.';
+        _error = body is Map
+            ? _midtransErrorMessage(Map<String, dynamic>.from(body))
+            : 'Network error. Please try again.';
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -182,8 +208,11 @@ class _CardTokenizePageState extends State<CardTokenizePage> {
                         keyboardType: TextInputType.number,
                         autofillHints: const [AutofillHints.creditCardNumber],
                         validator: (v) {
-                          final digits = (v ?? '').replaceAll(' ', '');
-                          if (digits.length < 12) return 'Enter a valid card number';
+                          final digits =
+                              (v ?? '').replaceAll(RegExp(r'\D'), '');
+                          if (digits.length < 12 || digits.length > 19) {
+                            return 'Enter a valid card number';
+                          }
                           return null;
                         },
                       ),

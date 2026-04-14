@@ -6,6 +6,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../tryon/data/models/tryon_api_models.dart';
 import '../../../tryon/presentation/controllers/tryon_controller.dart';
 import '../../../wardrobe/data/models/wardrobe_api_models.dart';
+import 'saved_try_on_detail_page.dart';
 
 class SavedTryOnPhotosPage extends StatefulWidget {
   const SavedTryOnPhotosPage({super.key});
@@ -84,7 +85,18 @@ class _SavedTryOnPhotosPageState extends State<SavedTryOnPhotosPage> {
                     mainAxisSpacing: 12,
                     childAspectRatio: 0.8,
                   ),
-                  itemBuilder: (context, i) => _SavedCard(item: items[i]),
+                  itemBuilder: (context, i) => _SavedCard(
+                    item: items[i],
+                    onOpenDetail: () async {
+                      final removed = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SavedTryOnDetailPage(entry: items[i]),
+                        ),
+                      );
+                      if (removed == true && context.mounted) await _load();
+                    },
+                  ),
                 ),
               );
             }),
@@ -94,49 +106,59 @@ class _SavedTryOnPhotosPageState extends State<SavedTryOnPhotosPage> {
 
 class _SavedCard extends StatelessWidget {
   final TryOnSavedEntryModel item;
-  const _SavedCard({required this.item});
+  final VoidCallback onOpenDetail;
+
+  const _SavedCard({required this.item, required this.onOpenDetail});
 
   @override
   Widget build(BuildContext context) {
     final img = resolveMediaUrl(item.resultImage);
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.softWhite,
+    return Material(
+      color: AppColors.softWhite,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpenDetail,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-              child: img.isEmpty
-                  ? Container(
-                      color: AppColors.roseMist,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.image_not_supported_outlined, color: AppColors.secondaryText),
-                    )
-                  : Image.network(
-                      img,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: AppColors.roseMist,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.broken_image_outlined, color: AppColors.secondaryText),
-                      ),
-                    ),
-            ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Text(
-              item.sourceType == 'shop_product' ? 'From Shop Product' : 'From Mix Outfit',
-              style: AppTextStyles.small.copyWith(color: AppColors.secondaryText),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                  child: img.isEmpty
+                      ? Container(
+                          color: AppColors.roseMist,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.image_not_supported_outlined, color: AppColors.secondaryText),
+                        )
+                      : Image.network(
+                          img,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: AppColors.roseMist,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image_outlined, color: AppColors.secondaryText),
+                          ),
+                        ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Text(
+                  item.sourceType == 'shop_product' ? 'From Shop Product' : 'From Mix Outfit',
+                  style: AppTextStyles.small.copyWith(color: AppColors.secondaryText),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -39,10 +39,13 @@ class PaymentMethodSelector extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.roseMist : AppColors.softWhite,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isSelected ? AppColors.blushPink : AppColors.border,
                   ),
+                  boxShadow: [
+                    if (!isSelected) BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -165,11 +168,14 @@ class _SavedCardSection extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color:
-                      isCardSelected ? AppColors.roseMist : AppColors.cardBackground,
-                  borderRadius: BorderRadius.circular(12),
+                      isCardSelected ? AppColors.roseMist : AppColors.softWhite,
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isCardSelected ? AppColors.blushPink : AppColors.border,
                   ),
+                  boxShadow: [
+                    if (!isCardSelected) BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+                  ],
                 ),
                 child: Row(
                   children: [

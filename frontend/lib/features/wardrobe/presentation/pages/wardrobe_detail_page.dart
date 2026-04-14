@@ -1,21 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
 import '../../../../../app/theme/app_colors.dart';
 import '../../../../../app/theme/app_text_styles.dart';
+import '../../data/models/wardrobe_api_models.dart';
+import '../controllers/wardrobe_controller.dart';
 
-class WardrobeDetailPage extends StatelessWidget {
-  final String categoryName;
-  final int count;
+class WardrobeDetailPage extends StatefulWidget {
+  final String categorySlug;
+  final String displayTitle;
+  final int itemCountHint;
 
   const WardrobeDetailPage({
     super.key,
-    this.categoryName = "tops",
-    this.count = 10,
+    required this.categorySlug,
+    required this.displayTitle,
+    required this.itemCountHint,
   });
+
+  @override
+  State<WardrobeDetailPage> createState() => _WardrobeDetailPageState();
+}
+
+class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
+  final WardrobeController _c = Get.find<WardrobeController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _c.loadItemsForCategory(widget.categorySlug);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.warmCream, // match bg
+      backgroundColor: AppColors.warmCream,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -31,78 +50,131 @@ class WardrobeDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        text: 'You own ',
-                        style: AppTextStyles.headline.copyWith(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: '$count ',
-                            style: const TextStyle(color: AppColors.secondaryText),
-                          ),
-                          TextSpan(text: categoryName.toLowerCase()),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.softWhite,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child:  Row(
-                        children: [
-                          Icon(Icons.filter_alt_outlined, color: AppColors.secondaryText, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            'Filter',
-                            style: AppTextStyles.productName.copyWith(
-                              fontWeight: FontWeight.w700,
+                Obx(() {
+                  final n = _c.categoryItems.length;
+                  final count = _c.isLoadingItems.value && n == 0 ? widget.itemCountHint : n;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: RichText(
+                          text: TextSpan(
+                            text: 'You own ',
+                            style: AppTextStyles.headline.copyWith(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w500,
                             ),
-                          )
-                        ],
+                            children: [
+                              TextSpan(
+                                text: '$count ',
+                                style: const TextStyle(color: AppColors.secondaryText),
+                              ),
+                              TextSpan(text: widget.displayTitle.toLowerCase()),
+                            ],
+                          ),
+                        ),
                       ),
-                    )
-                  ],
-                ),
+                      GestureDetector(
+                        onTap: () => _showFilterSheet(context),
+                        child: Obx(() {
+                          final active = _c.selectedStyleTag.value.isNotEmpty;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: active ? AppColors.blushPink : AppColors.softWhite,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                              border: Border.all(
+                                color: active ? AppColors.blushPink : AppColors.border,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.filter_alt_outlined,
+                                  color: active ? Colors.white : AppColors.secondaryText,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  active ? _c.selectedStyleTag.value : 'Filter',
+                                  style: AppTextStyles.productName.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: active ? Colors.white : AppColors.primaryText,
+                                  ),
+                                ),
+                                if (active) ...[
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: _c.clearStyleTagFilter,
+                                    child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }),
+                      )
+                    ],
+                  );
+                }),
                 const SizedBox(height: 20),
                 Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.only(bottom: 120),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.72, 
-                    ),
-                    itemCount: count,
-                    itemBuilder: (context, index) {
-                      return _buildItemCard(
-                        title: _getMockTitle(index),
-                        isFavorite: index == 1 || index == 3 || index == 5, 
+                  child: Obx(() {
+                    if (_c.isLoadingItems.value && _c.categoryItems.isEmpty) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppColors.blushPink),
                       );
-                    },
-                  ),
+                    }
+                    if (_c.categoryItems.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'Belum ada item di kategori ini.',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.description,
+                          ),
+                        ),
+                      );
+                    }
+                    final items = _c.filteredCategoryItems;
+                    if (items.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'Tidak ada item dengan tag "${_c.selectedStyleTag.value}".',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.description,
+                          ),
+                        ),
+                      );
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.only(bottom: 120),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.72,
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        return _buildItemCard(items[index]);
+                      },
+                    );
+                  }),
                 ),
               ],
             ),
           ),
-          
-          // Floating Bottom Area containing the ADD button
           Positioned(
             left: 0,
             right: 0,
@@ -114,8 +186,8 @@ class WardrobeDetailPage extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppColors.warmCream.withOpacity(0.0),
-                    AppColors.warmCream.withOpacity(0.9),
+                    AppColors.warmCream.withValues(alpha: 0.0),
+                    AppColors.warmCream.withValues(alpha: 0.9),
                     AppColors.warmCream,
                   ],
                 ),
@@ -123,8 +195,8 @@ class WardrobeDetailPage extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                   Text(
-                    'Something isnt Here?',
+                  Text(
+                    'Something isn\'t here?',
                     style: AppTextStyles.description.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -134,16 +206,16 @@ class WardrobeDetailPage extends StatelessWidget {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.blushPink,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(28),
                         ),
                         elevation: 4,
-                        shadowColor: AppColors.blushPink.withOpacity(0.4),
+                        shadowColor: AppColors.blushPink.withValues(alpha: 0.4),
                       ),
-                      child:  Text(
+                      child: Text(
                         '+ Add Clothes',
                         style: AppTextStyles.button,
                       ),
@@ -151,29 +223,110 @@ class WardrobeDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
-            )
+            ),
           )
         ],
       ),
     );
   }
 
-  String _getMockTitle(int index) {
-    List<String> titles = [
-      "White Tank Top", 
-      "Pink Camisole", 
-      "White Tee", 
-      "Stripped Tee", 
-      "Pink Blouse", 
-      "Cream Puff Sleeve Top", 
-      "Blue Button Shirt", 
-      "Warm Beige Knit"
-    ];
-    if (index < titles.length) return titles[index];
-    return "Item ${index + 1}";
+  void _showFilterSheet(BuildContext context) {
+    final tags = _c.availableStyleTags;
+    if (tags.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.warmCream,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Obx(() {
+        final selected = _c.selectedStyleTag.value;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Filter by Style',
+                style: AppTextStyles.headline.copyWith(fontSize: 18),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  // "All" chip to clear filter
+                  _filterChip(
+                    label: 'All',
+                    selected: selected.isEmpty,
+                    onTap: () {
+                      _c.clearStyleTagFilter();
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ...tags.map((tag) => _filterChip(
+                    label: tag,
+                    selected: selected == tag,
+                    onTap: () {
+                      _c.selectedStyleTag.value = tag;
+                      Navigator.pop(context);
+                    },
+                  )),
+                ],
+              ),
+            ],
+          ),
+        );
+      }),
+    );
   }
 
-  Widget _buildItemCard({required String title, required bool isFavorite}) {
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.blushPink : AppColors.softWhite,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.blushPink : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.productName.copyWith(
+            color: selected ? Colors.white : AppColors.primaryText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemCard(WardrobeItemApiModel item) {
+    final url = resolveMediaUrl(item.image);
+    final title = item.name.trim().isNotEmpty
+        ? item.name
+        : (item.subcategory.trim().isNotEmpty ? item.subcategory : item.category);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -182,7 +335,7 @@ class WardrobeDetailPage extends StatelessWidget {
         border: Border.all(color: AppColors.border, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -220,8 +373,8 @@ class WardrobeDetailPage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? AppColors.blushPink : Colors.grey.shade400,
+                  Icons.favorite_border,
+                  color: Colors.grey.shade400,
                   size: 22,
                 ),
               )
@@ -229,31 +382,34 @@ class WardrobeDetailPage extends StatelessWidget {
           ),
           const Spacer(),
           Center(
-            child: Container(
-              height: 80,
-              width: 80,
-              decoration: BoxDecoration(
-                color: AppColors.warmCream, 
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.checkroom, color: AppColors.roseMist, size: 40),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: url.isNotEmpty
+                  ? Image.network(
+                      url,
+                      height: 96,
+                      width: 96,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stack) => _imagePlaceholder(),
+                    )
+                  : _imagePlaceholder(),
             ),
           ),
           const Spacer(),
-           Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
                   Icon(Icons.edit_outlined, size: 16, color: AppColors.blushPink),
-                  SizedBox(width: 4),
+                  const SizedBox(width: 4),
                   Text('Edit', style: AppTextStyles.small.copyWith(fontWeight: FontWeight.w600)),
                 ],
               ),
               Row(
                 children: [
                   Icon(Icons.delete_outline, size: 18, color: AppColors.blushPink),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Icon(Icons.copy_outlined, size: 18, color: AppColors.blushPink),
                 ],
               )
@@ -261,6 +417,18 @@ class WardrobeDetailPage extends StatelessWidget {
           )
         ],
       ),
+    );
+  }
+
+  Widget _imagePlaceholder() {
+    return Container(
+      height: 96,
+      width: 96,
+      decoration: BoxDecoration(
+        color: AppColors.warmCream,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(Icons.checkroom, color: AppColors.roseMist, size: 40),
     );
   }
 }

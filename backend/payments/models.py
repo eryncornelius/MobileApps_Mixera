@@ -69,6 +69,9 @@ class SavedCard(models.Model):
     card_brand = models.CharField(max_length=50, blank=True)
     masked_card = models.CharField(max_length=20, blank=True)
     saved_token_id = models.CharField(max_length=255, unique=True)
+    expiry_month = models.CharField(max_length=2, blank=True)
+    expiry_year = models.CharField(max_length=4, blank=True)
+    card_type = models.CharField(max_length=30, blank=True)
     is_default = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -1,37 +1,65 @@
 import '../models/dashboard_model.dart';
 import '../models/quick_action_model.dart';
 import '../models/recommendation_banner_model.dart';
+import '../../../shop/data/datasources/shop_remote_datasource.dart';
+import '../../../shop/data/models/product_model.dart';
+import '../../../wardrobe/data/datasources/wardrobe_remote_datasource.dart';
+import '../../../wardrobe/data/models/wardrobe_api_models.dart';
 
 abstract class HomeRemoteDataSource {
   Future<DashboardModel> getDashboard();
 }
 
 class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
-  // TODO: inject Dio or http client here
-  // final Dio _dio;
-  // HomeRemoteDataSourceImpl(this._dio);
+  HomeRemoteDataSourceImpl({
+    WardrobeRemoteDatasource? wardrobe,
+    ShopRemoteDatasource? shop,
+  })  : _wardrobe = wardrobe ?? WardrobeRemoteDatasource(),
+        _shop = shop ?? ShopRemoteDatasource();
+
+  final WardrobeRemoteDatasource _wardrobe;
+  final ShopRemoteDatasource _shop;
+
+  static String _greetingByTime() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
 
   @override
   Future<DashboardModel> getDashboard() async {
-    // TODO: replace with real API call, e.g.:
-    // final response = await _dio.get('/api/dashboard');
-    // return DashboardModel.fromJson(response.data);
+    final wardrobeApi = await _safeWardrobeItems();
+    final products = await _safeProducts();
 
-    // --- Mock data ---
-    await Future.delayed(const Duration(milliseconds: 600));
+    final wardrobeItems = wardrobeApi
+        .take(4)
+        .map(
+          (w) => WardrobeItemModel(
+            id: w.id.toString(),
+            imageUrl: resolveMediaUrl(w.image),
+            name: w.name.trim().isNotEmpty ? w.name : w.category,
+          ),
+        )
+        .toList();
+
+    final saleFromShop = products.where((p) => p.discountPrice != null).toList();
+    final saleItems = saleFromShop
+        .take(3)
+        .map(_productToSale)
+        .toList();
+
+    final recommendedItems = products
+        .take(6)
+        .map(_productToRecommended)
+        .toList();
+
+    final banner = _buildBanner(wardrobeItems);
 
     return DashboardModel(
-      greeting: 'Good Morning',
+      greeting: _greetingByTime(),
       greetingSubtitle: 'Ready to style today?',
-      featuredBanner: const RecommendationBannerModel(
-        id: 'banner_1',
-        title: 'Emo top review',
-        subtitle: 'Soft pastel look\nfor a casual day',
-        imageUrl:
-            'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400',
-        ctaLabel: 'Mix My Outfit',
-        ctaRoute: '/mix',
-      ),
+      featuredBanner: banner,
       quickActions: const [
         QuickActionModel(
           id: 'qa_1',
@@ -48,7 +76,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
         QuickActionModel(
           id: 'qa_3',
           label: 'Saved Outfits',
-          iconName: 'heart',
+          iconName: 'bookmark',
           route: '/saved',
         ),
         QuickActionModel(
@@ -58,95 +86,73 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           route: '/orders',
         ),
       ],
-      wardrobeItems: const [
-        WardrobeItemModel(
-          id: 'w1',
-          imageUrl:
-              'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=200',
-          name: 'Knit Top',
-        ),
-        WardrobeItemModel(
-          id: 'w2',
-          imageUrl:
-              'https://images.unsplash.com/photo-1604575021891-1b95c60659b9?w=200',
-          name: 'Pink Blazer',
-        ),
-        WardrobeItemModel(
-          id: 'w3',
-          imageUrl:
-              'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=200',
-          name: 'Jeans',
-        ),
-        WardrobeItemModel(
-          id: 'w4',
-          imageUrl:
-              'https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=200',
-          name: 'Heels',
-        ),
-      ],
-      saleItems: const [
-        SaleItemModel(
-          id: 's1',
-          name: 'Blush Puff Sleeve Top',
-          imageUrl:
-              'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300',
-          originalPrice: 180000,
-          salePrice: 113300,
-          discountPercent: 30,
-        ),
-        SaleItemModel(
-          id: 's2',
-          name: 'Soft Pink Ruched Blouse',
-          imageUrl:
-              'https://images.unsplash.com/photo-1604575021891-1b95c60659b9?w=300',
-          originalPrice: 259000,
-          salePrice: 179000,
-          discountPercent: 25,
-        ),
-        SaleItemModel(
-          id: 's3',
-          name: 'Midi Skirt',
-          imageUrl:
-              'https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=300',
-          originalPrice: 259000,
-          salePrice: 199000,
-          discountPercent: 20,
-        ),
-      ],
-      recommendedItems: const [
-        RecommendedItemModel(
-          id: 'r1',
-          name: 'Midi Skirt',
-          brand: 'Fall & Bloom',
-          imageUrl:
-              'https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=300',
-          price: 199000,
-        ),
-        RecommendedItemModel(
-          id: 'r2',
-          name: 'Midi Skirt',
-          brand: 'Fall & Bloom',
-          imageUrl:
-              'https://images.unsplash.com/photo-1581338834647-b0fb40704e21?w=300',
-          price: 199000,
-        ),
-        RecommendedItemModel(
-          id: 'r3',
-          name: 'Linen Blouse',
-          brand: 'Soft Stitch',
-          imageUrl:
-              'https://images.unsplash.com/photo-1551163943-3f7253a97bca?w=300',
-          price: 149000,
-        ),
-        RecommendedItemModel(
-          id: 'r4',
-          name: 'Floral Top',
-          brand: 'Petal Co.',
-          imageUrl:
-              'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300',
-          price: 129000,
-        ),
-      ],
+      wardrobeItems: wardrobeItems,
+      saleItems: saleItems,
+      recommendedItems: recommendedItems,
+    );
+  }
+
+  Future<List<WardrobeItemApiModel>> _safeWardrobeItems() async {
+    try {
+      return await _wardrobe.getWardrobeItems();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<ProductModel>> _safeProducts() async {
+    try {
+      return await _shop.getProducts();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  RecommendationBannerModel _buildBanner(List<WardrobeItemModel> wardrobeItems) {
+    const fallbackImage =
+        'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400';
+    if (wardrobeItems.isNotEmpty) {
+      final first = wardrobeItems.first;
+      return RecommendationBannerModel(
+        id: 'banner_wardrobe',
+        title: 'Style your look',
+        subtitle: '${first.name}\nTap Mix Ai to combine outfits.',
+        imageUrl: first.imageUrl.isNotEmpty ? first.imageUrl : fallbackImage,
+        ctaLabel: 'Mix My Outfit',
+        ctaRoute: '/mix',
+      );
+    }
+    return const RecommendationBannerModel(
+      id: 'banner_default',
+      title: 'Mix My Outfit',
+      subtitle: 'Soft pastel look\nfor a casual day',
+      imageUrl: fallbackImage,
+      ctaLabel: 'Mix My Outfit',
+      ctaRoute: '/mix',
+    );
+  }
+
+  SaleItemModel _productToSale(ProductModel p) {
+    final orig = p.price.toDouble();
+    final sale = p.discountPrice!.toDouble();
+    final pct = p.discountPercent;
+    return SaleItemModel(
+      id: p.id.toString(),
+      name: p.name,
+      imageUrl: resolveMediaUrl(p.primaryImage),
+      originalPrice: orig,
+      salePrice: sale,
+      discountPercent: pct,
+    );
+  }
+
+  RecommendedItemModel _productToRecommended(ProductModel p) {
+    return RecommendedItemModel(
+      id: p.id.toString(),
+      name: p.name,
+      brand: p.categoryName ?? 'Mixéra Shop',
+      imageUrl: resolveMediaUrl(p.primaryImage),
+      price: p.displayPrice.toDouble(),
     );
   }
 }

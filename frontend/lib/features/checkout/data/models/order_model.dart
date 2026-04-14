@@ -43,6 +43,8 @@ class OrderModel {
   final int total;
   final String paymentMethod;
   final String paymentStatus;
+  final String trackingNumber;
+  final String shippingCourier;
   final Map<String, dynamic>? addressSnapshot;
   final String createdAt;
   final List<OrderItemModel> items;
@@ -56,6 +58,8 @@ class OrderModel {
     required this.total,
     required this.paymentMethod,
     required this.paymentStatus,
+    this.trackingNumber = '',
+    this.shippingCourier = '',
     this.addressSnapshot,
     required this.createdAt,
     required this.items,
@@ -70,6 +74,8 @@ class OrderModel {
         total: json['total'] as int,
         paymentMethod: json['payment_method'] as String,
         paymentStatus: json['payment_status'] as String,
+        trackingNumber: json['tracking_number'] as String? ?? '',
+        shippingCourier: json['shipping_courier'] as String? ?? '',
         addressSnapshot: json['address_snapshot'] as Map<String, dynamic>?,
         createdAt: json['created_at'] as String? ?? '',
         items: (json['items'] as List? ?? [])

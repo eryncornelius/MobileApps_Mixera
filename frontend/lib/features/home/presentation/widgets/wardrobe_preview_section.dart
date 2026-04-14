@@ -53,35 +53,42 @@ class WardrobePreviewSection extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              // Horizontal list
               SizedBox(
                 height: 80,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        item.imageUrl,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 80,
-                          height: 80,
-                          color: AppColors.roseMist,
-                          child: const Icon(
-                            Icons.checkroom_outlined,
-                            color: AppColors.blushPink,
-                          ),
+                child: items.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No items yet — add clothes from Wardrobe.',
+                          style: AppTextStyles.description,
+                          textAlign: TextAlign.center,
                         ),
+                      )
+                    : ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: items.length,
+                        separatorBuilder: (context, i) => const SizedBox(width: 10),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              item.imageUrl,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) => Container(
+                                width: 80,
+                                height: 80,
+                                color: AppColors.roseMist,
+                                child: const Icon(
+                                  Icons.checkroom_outlined,
+                                  color: AppColors.blushPink,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           ),

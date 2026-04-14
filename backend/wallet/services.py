@@ -19,3 +19,20 @@ def credit_wallet(user, amount: int, reference: str, description: str = "Wallet 
             reference=reference,
             description=description,
         )
+
+
+def try_credit_wallet_topup(*, user, gross_amount: int, payment_order_id: str) -> bool:
+    """
+    Idempotent: credit wallet once per Midtrans order_id (Core API / Snap top-up).
+    Returns True if a new top_up row was created.
+    """
+    if not payment_order_id:
+        return False
+    if WalletTransaction.objects.filter(
+        wallet__user_id=user.pk,
+        reference=payment_order_id,
+        type="top_up",
+    ).exists():
+        return False
+    credit_wallet(user=user, amount=gross_amount, reference=payment_order_id)
+    return True

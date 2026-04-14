@@ -1,22 +1,22 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/network/api_base_url.dart';
+
 class AuthRemoteDatasource {
   AuthRemoteDatasource()
-    : dio = Dio(
-        BaseOptions(
-          baseUrl: _baseUrl,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
-      );
+      : dio = Dio(
+          BaseOptions(
+            baseUrl: ApiBaseUrl.module('users'),
+            connectTimeout: const Duration(seconds: 15),
+            receiveTimeout: const Duration(seconds: 15),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          ),
+        );
 
   final Dio dio;
-
-  static const String _baseUrl = 'http://127.0.0.1:8000/api/users';
 
   String _handleError(DioException e) {
     if (e.response != null && e.response?.data != null) {
@@ -130,6 +130,19 @@ class AuthRemoteDatasource {
       final response = await dio.post('/google/', data: {'id_token': idToken});
 
       return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// Exchange refresh JWT for a new access token (SimpleJWT).
+  Future<Map<String, dynamic>> refreshTokens({required String refresh}) async {
+    try {
+      final response = await dio.post(
+        '/login/refresh/',
+        data: {'refresh': refresh},
+      );
+      return Map<String, dynamic>.from(response.data as Map);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

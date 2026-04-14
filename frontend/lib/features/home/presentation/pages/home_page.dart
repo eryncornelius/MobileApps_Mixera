@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../../../../app/theme/app_colors.dart';
 import '../../../../../app/theme/app_text_styles.dart';
+import '../../../notifications/presentation/controllers/notifications_controller.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../data/datasources/home_remote_datasource.dart';
 import '../../data/models/dashboard_model.dart';
+import '../../data/models/quick_action_model.dart';
 import '../../data/models/recommendation_banner_model.dart';
 import '../../data/repositories/home_repository_impl.dart';
 import '../../domain/usecases/get_dashboard_usecase.dart';
@@ -13,6 +17,7 @@ import '../widgets/on_sale_section.dart';
 import '../widgets/quick_actions_section.dart';
 import '../widgets/recommended_section.dart';
 import '../widgets/wardrobe_preview_section.dart';
+import '../../../../app/routes/route_names.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,6 +28,25 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late final HomeController _controller;
+
+  void _openQuickAction(QuickActionModel action) {
+    switch (action.route) {
+      case '/wardrobe/add':
+        Navigator.pushNamed(context, RouteNames.wardrobe);
+        break;
+      case '/mix':
+        Navigator.pushNamed(context, RouteNames.mixMatch);
+        break;
+      case '/saved':
+        Navigator.pushNamed(context, RouteNames.savedOutfits);
+        break;
+      case '/orders':
+        Navigator.pushNamed(context, RouteNames.orders);
+        break;
+      default:
+        break;
+    }
+  }
 
   @override
   void initState() {
@@ -93,11 +117,18 @@ class _HomePageState extends State<HomePage> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 56, 20, 0),
-            child: GreetingHeader(
-              greeting: data.greeting,
-              subtitle: data.greetingSubtitle,
-              onNotificationTap: () {},
-            ),
+            child: Obx(() {
+              final nc = Get.find<NotificationsController>();
+              return GreetingHeader(
+                greeting: data.greeting,
+                subtitle: data.greetingSubtitle,
+                unreadCount: nc.unreadCount.value,
+                onNotificationTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                ),
+              );
+            }),
           ),
         ),
 
@@ -115,8 +146,7 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
             child: QuickActionsSection(
               actions: data.quickActions,
-              onViewAll: () {},
-              onActionTap: (action) {},
+              onActionTap: _openQuickAction,
             ),
           ),
         ),
@@ -127,44 +157,52 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
             child: WardrobePreviewSection(
               items: data.wardrobeItems,
-              onViewAll: () {},
+              onViewAll: () =>
+                  Navigator.pushNamed(context, RouteNames.wardrobe),
             ),
           ),
         ),
 
-        // ── Complete Your Look ───────────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-            child: _CompleteYourLookSection(
-              items: data.recommendedItems.take(2).toList(),
+        // ── Complete Your Look (shop catalog) ───────────────────────────────
+        if (data.recommendedItems.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+              child: _CompleteYourLookSection(
+                items: data.recommendedItems.take(2).toList(),
+                onViewAllShop: () =>
+                    Navigator.pushNamed(context, RouteNames.shopSearch),
+              ),
             ),
           ),
-        ),
 
         // ── On Sale ──────────────────────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-            child: OnSaleSection(
-              items: data.saleItems,
-              onViewAll: () {},
-              onItemTap: (_) {},
+        if (data.saleItems.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+              child: OnSaleSection(
+                items: data.saleItems,
+                onViewAll: () =>
+                    Navigator.pushNamed(context, RouteNames.shopSearch),
+                onItemTap: (_) {},
+              ),
             ),
           ),
-        ),
 
         // ── Recommended ──────────────────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-            child: RecommendedSection(
-              items: data.recommendedItems,
-              onViewAll: () {},
-              onItemTap: (_) {},
+        if (data.recommendedItems.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+              child: RecommendedSection(
+                items: data.recommendedItems,
+                onViewAll: () =>
+                    Navigator.pushNamed(context, RouteNames.shopSearch),
+                onItemTap: (_) {},
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -187,7 +225,7 @@ class _FeaturedBanner extends StatelessWidget {
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: AppColors.blushPink.withOpacity(0.08),
+            color: AppColors.blushPink.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -237,7 +275,7 @@ class _FeaturedBanner extends StatelessWidget {
             child: Image.network(
               banner.imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (ctx, err, stack) => Container(
                 color: AppColors.roseMist,
                 child: const Icon(
                   Icons.checkroom_outlined,
@@ -257,8 +295,12 @@ class _FeaturedBanner extends StatelessWidget {
 
 class _CompleteYourLookSection extends StatelessWidget {
   final List<RecommendedItemModel> items;
+  final VoidCallback onViewAllShop;
 
-  const _CompleteYourLookSection({required this.items});
+  const _CompleteYourLookSection({
+    required this.items,
+    required this.onViewAllShop,
+  });
 
   String _formatPrice(double price) {
     final formatted = price
@@ -333,7 +375,7 @@ class _CompleteYourLookSection extends StatelessWidget {
                   width: double.infinity,
                   height: 44,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: onViewAllShop,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.blushPink,
                       foregroundColor: Colors.white,
@@ -368,11 +410,11 @@ class _CompleteItem extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: AspectRatio(
-            aspectRatio: 0.9,
+            aspectRatio: 1.0,
             child: Image.network(
               item.imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (ctx, err, stack) => Container(
                 color: AppColors.roseMist,
                 child: const Icon(
                   Icons.checkroom_outlined,

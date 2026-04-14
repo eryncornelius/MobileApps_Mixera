@@ -44,25 +44,3 @@ class _MainShellPageState extends State<MainShellPage> {
     );
   }
 }
-
-class _WardrobePlaceholderPage extends StatelessWidget {
-  const _WardrobePlaceholderPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Wardrobe Page')),
-    );
-  }
-}
-
-class _MixPlaceholderPage extends StatelessWidget {
-  const _MixPlaceholderPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Mix Page')),
-    );
-  }
-}

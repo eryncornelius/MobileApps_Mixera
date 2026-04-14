@@ -6,15 +6,6 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../shared/widgets/inputs/otp_input_field.dart';
 import '../controllers/auth_controller.dart';
 
-enum OtpPurpose { register, resetPassword }
-
-class OtpPageArgs {
-  final String email;
-  final OtpPurpose purpose;
-
-  const OtpPageArgs({required this.email, required this.purpose});
-}
-
 class OtpVerificationPage extends StatelessWidget {
   final String email;
 

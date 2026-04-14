@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/route_names.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../checkout/data/models/order_model.dart';
+import '../../data/datasources/orders_remote_datasource.dart';
+import '../../data/models/tracking_model.dart';
 import '../controllers/orders_controller.dart';
 import '../widgets/order_status_chip.dart';
 
@@ -200,9 +203,57 @@ class _OrderContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(formatDate(order.createdAt), style: AppTextStyles.small),
+                if (order.paymentStatus.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Payment: ${order.paymentStatus}',
+                    style: AppTextStyles.small.copyWith(color: AppColors.secondaryText),
+                  ),
+                ],
               ],
             ),
           ),
+          if (order.trackingNumber.isNotEmpty || order.shippingCourier.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pengiriman', style: AppTextStyles.type),
+                  const SizedBox(height: 8),
+                  if (order.shippingCourier.isNotEmpty)
+                    Text(order.shippingCourier, style: AppTextStyles.productName),
+                  if (order.trackingNumber.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    SelectableText(
+                      order.trackingNumber,
+                      style: AppTextStyles.description,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: order.trackingNumber));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Nomor resi disalin.')),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.copy_rounded, size: 18),
+                          label: const Text('Salin resi'),
+                          style: TextButton.styleFrom(foregroundColor: AppColors.blushPink),
+                        ),
+                        const SizedBox(width: 8),
+                        _TrackingButton(orderId: order.id),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // Items
@@ -322,9 +373,12 @@ class _ItemCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.softWhite,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
       ),
       child: Row(
         children: [
@@ -412,9 +466,12 @@ class _SectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.softWhite,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
       ),
       child: child,
     );
@@ -442,6 +499,242 @@ class _PayRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TrackingButton extends StatefulWidget {
+  const _TrackingButton({required this.orderId});
+
+  final int orderId;
+
+  @override
+  State<_TrackingButton> createState() => _TrackingButtonState();
+}
+
+class _TrackingButtonState extends State<_TrackingButton> {
+  bool _loading = false;
+
+  Future<void> _check() async {
+    setState(() => _loading = true);
+    try {
+      final result = await OrdersRemoteDatasource().getTracking(widget.orderId);
+      if (!mounted) return;
+      _showTrackingSheet(result);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showTrackingSheet(TrackingModel tracking) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TrackingSheet(tracking: tracking),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _loading ? null : _check,
+      icon: _loading
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.blushPink,
+              ),
+            )
+          : const Icon(Icons.local_shipping_outlined, size: 18),
+      label: const Text('Cek Status'),
+      style: TextButton.styleFrom(foregroundColor: AppColors.blushPink),
+    );
+  }
+}
+
+class _TrackingSheet extends StatelessWidget {
+  const _TrackingSheet({required this.tracking});
+
+  final TrackingModel tracking;
+
+  String _formatTime(String raw) {
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    final local = dt.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/'
+        '${local.month.toString().padLeft(2, '0')}/'
+        '${local.year}  '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.softWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Icon(Icons.local_shipping_outlined,
+                      color: AppColors.blushPink, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tracking.courier.toUpperCase(),
+                      style: AppTextStyles.section.copyWith(color: AppColors.blushPink),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.roseMist,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      tracking.status,
+                      style: AppTextStyles.small.copyWith(
+                        color: AppColors.blushPink,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Text(
+                tracking.waybill,
+                style: AppTextStyles.small.copyWith(color: AppColors.secondaryText),
+              ),
+            ),
+            const Divider(height: 1, color: AppColors.border),
+            Expanded(
+              child: tracking.history.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Belum ada riwayat pengiriman.',
+                        style: AppTextStyles.description.copyWith(
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: controller,
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      itemCount: tracking.history.length,
+                      itemBuilder: (_, i) {
+                        final item = tracking.history[i];
+                        final isFirst = i == 0;
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Timeline line + dot
+                              SizedBox(
+                                width: 24,
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isFirst
+                                            ? AppColors.blushPink
+                                            : AppColors.border,
+                                        border: isFirst
+                                            ? Border.all(
+                                                color: AppColors.blushPink, width: 2)
+                                            : null,
+                                      ),
+                                    ),
+                                    if (i < tracking.history.length - 1)
+                                      Expanded(
+                                        child: Container(
+                                          width: 2,
+                                          color: AppColors.border,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.status,
+                                        style: AppTextStyles.description.copyWith(
+                                          fontWeight: isFirst
+                                              ? FontWeight.w600
+                                              : FontWeight.w400,
+                                          color: isFirst
+                                              ? AppColors.blushPink
+                                              : AppColors.primaryText,
+                                        ),
+                                      ),
+                                      if (item.note.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(item.note, style: AppTextStyles.small),
+                                      ],
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _formatTime(item.updatedTime),
+                                        style: AppTextStyles.small.copyWith(
+                                          color: AppColors.secondaryText,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

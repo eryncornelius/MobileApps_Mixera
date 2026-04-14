@@ -5,13 +5,21 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 import '../../../../app/routes/route_names.dart';
+import '../../../seller/presentation/controllers/seller_controller.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
+import '../../../../core/biometric/biometric_lock_storage.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../../core/services/fcm_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthController extends GetxController {
   final AuthRemoteDatasource _api = AuthRemoteDatasource();
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+
+  // Stores the init future so continueWithGoogle can await it.
+  // google_sign_in v7 requires initialize() to complete before authenticate().
+  Future<void>? _initFuture;
+
   Future<void> initGoogleSignIn() async {
     await _googleSignIn.initialize(
       serverClientId: dotenv.env['SERVER_CLIENT_ID'],
@@ -21,6 +29,7 @@ class AuthController extends GetxController {
   Future<void> continueWithGoogle(BuildContext context) async {
     isLoading.value = true;
     try {
+      await _initFuture; // ensure initialize() has completed
       final account = await _googleSignIn.authenticate();
       final auth = account.authentication;
       final idToken = auth.idToken;
@@ -38,17 +47,18 @@ class AuthController extends GetxController {
       }
 
       await TokenStorage.saveTokens(accessToken: access, refreshToken: refresh);
+      FcmService.registerAfterLogin();
       debugPrint('ACCESS TOKEN: $access');
       debugPrint('REFRESH TOKEN: $refresh');
       debugPrint('USER Login');
       if (!context.mounted) return;
       _showSnackbar(context, 'Login Google berhasil!', true);
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        RouteNames.mainShell,
-        (route) => false,
-      );
+      final userMap = result['user'] is Map
+          ? Map<String, dynamic>.from(result['user'] as Map)
+          : null;
+      if (!context.mounted) return;
+      _navigateHome(context, userJson: userMap);
     } catch (e) {
       if (!context.mounted) return;
       _showSnackbar(context, e.toString().replaceAll('Exception: ', ''), false);
@@ -87,17 +97,17 @@ class AuthController extends GetxController {
     }
 
     await TokenStorage.saveTokens(accessToken: access, refreshToken: refresh);
+    FcmService.registerAfterLogin();
 
     final savedAccess = await TokenStorage.getAccessToken();
     debugPrint('FB STEP 5: saved access = $savedAccess');
 
     if (!context.mounted) return;
 
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      RouteNames.mainShell,
-      (route) => false,
-    );
+    final userMap = response['user'] is Map
+        ? Map<String, dynamic>.from(response['user'] as Map)
+        : null;
+    _navigateHome(context, userJson: userMap);
   } catch (e, st) {
     debugPrint('FB ERROR: $e');
     debugPrint('FB STACK: $st');
@@ -117,9 +127,9 @@ class AuthController extends GetxController {
 
   final newPasswordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
-  final resetCodeController = TextEditingController();
 
   final otpControllers = List.generate(4, (_) => TextEditingController());
+  final resetOtpControllers = List.generate(4, (_) => TextEditingController());
 
   final isPasswordHidden = true.obs;
   final isConfirmPasswordHidden = true.obs;
@@ -128,10 +138,11 @@ class AuthController extends GetxController {
   final isLoading = false.obs;
 
   String get otpCode => otpControllers.map((c) => c.text.trim()).join();
+  String get resetOtpCode => resetOtpControllers.map((c) => c.text.trim()).join();
   @override
   void onInit() {
     super.onInit();
-    initGoogleSignIn();
+    _initFuture = initGoogleSignIn();
   }
 
   void togglePasswordVisibility() {
@@ -148,6 +159,20 @@ class AuthController extends GetxController {
 
   void toggleResetConfirmPasswordVisibility() {
     isResetConfirmPasswordHidden.value = !isResetConfirmPasswordHidden.value;
+  }
+
+  void _navigateHome(BuildContext context, {Map<String, dynamic>? userJson}) {
+    final isSeller = userJson != null && userJson['is_seller'] == true;
+    // Drop any previous SellerController so a new session runs onInit/refreshAll
+    // with the JWT just saved (avoids stale seller UI after Google/social login).
+    if (Get.isRegistered<SellerController>()) {
+      Get.delete<SellerController>(force: true);
+    }
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      isSeller ? RouteNames.sellerShell : RouteNames.mainShell,
+      (route) => false,
+    );
   }
 
   void _showSnackbar(BuildContext context, String message, bool isSuccess) {
@@ -195,15 +220,16 @@ class AuthController extends GetxController {
       }
 
       await TokenStorage.saveTokens(accessToken: access, refreshToken: refresh);
+      FcmService.registerAfterLogin();
 
       if (!context.mounted) return;
       _showSnackbar(context, 'Login Berhasil!', true);
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        RouteNames.mainShell,
-        (route) => false,
-      );
+      final userMap = result['user'] is Map
+          ? Map<String, dynamic>.from(result['user'] as Map)
+          : null;
+      if (!context.mounted) return;
+      _navigateHome(context, userJson: userMap);
     } catch (e) {
       _showSnackbar(context, e.toString().replaceAll('Exception: ', ''), false);
     } finally {
@@ -288,7 +314,7 @@ class AuthController extends GetxController {
     try {
       await _api.forgotPassword(email);
       if (!context.mounted) return;
-      resetCodeController.clear();
+      for (final c in resetOtpControllers) { c.clear(); }
       newPasswordController.clear();
       confirmPasswordController.clear();
 
@@ -306,7 +332,7 @@ class AuthController extends GetxController {
     BuildContext context, {
     required String email,
   }) async {
-    final code = resetCodeController.text.trim();
+    final code = resetOtpCode;
     final newPassword = newPasswordController.text;
     final confirmPassword = confirmPasswordController.text;
 
@@ -329,7 +355,7 @@ class AuthController extends GetxController {
         confirmPassword: confirmPassword,
       );
       if (!context.mounted) return;
-      resetCodeController.clear();
+      for (final c in resetOtpControllers) { c.clear(); }
       newPasswordController.clear();
       confirmPasswordController.clear();
       forgotEmailController.clear();
@@ -351,6 +377,10 @@ class AuthController extends GetxController {
   Future<void> logout(BuildContext context) async {
     try {
       await TokenStorage.clearTokens();
+      await BiometricLockStorage.setLockEnabled(false);
+      if (Get.isRegistered<SellerController>()) {
+        Get.delete<SellerController>(force: true);
+      }
       await _googleSignIn.signOut();
       await FacebookAuth.instance.logOut();
 
@@ -376,9 +406,11 @@ class AuthController extends GetxController {
     forgotEmailController.dispose();
     newPasswordController.dispose();
     confirmPasswordController.dispose();
-    resetCodeController.dispose();
 
     for (final controller in otpControllers) {
+      controller.dispose();
+    }
+    for (final controller in resetOtpControllers) {
       controller.dispose();
     }
 

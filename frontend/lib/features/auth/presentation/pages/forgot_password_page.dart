@@ -13,6 +13,7 @@ class ForgotPasswordPage extends StatelessWidget {
     final authC = Get.find<AuthController>();
 
     return Scaffold(
+      backgroundColor: AppColors.warmCream,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
@@ -36,10 +37,24 @@ class ForgotPasswordPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Dont Worry, it happens!\nPlease enter your email address and we\'ll send you instructions to reset your password.',
+              RichText(
                 textAlign: TextAlign.center,
-                style: AppTextStyles.description.copyWith(height: 1.5),
+                text: TextSpan(
+                  style: AppTextStyles.description.copyWith(height: 1.6),
+                  children: [
+                    const TextSpan(text: 'Dont Worry, it happens!\nPlease enter your '),
+                    TextSpan(
+                      text: 'email address',
+                      style: AppTextStyles.description.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryText,
+                      ),
+                    ),
+                    const TextSpan(
+                      text: ' and\nwe\'ll send you instructions to reset your password.',
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 48),
               Stack(
@@ -67,20 +82,29 @@ class ForgotPasswordPage extends StatelessWidget {
                           style: AppTextStyles.description,
                         ),
                         const SizedBox(height: 8),
-                        Obx(
-                          () => ElevatedButton(
-                            onPressed: authC.isLoading.value
-                                ? null
-                                : () => authC.sendForgotPasswordCode(context),
-                            child: authC.isLoading.value
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Send Reset Code'),
+                        TextFormField(
+                          controller: authC.forgotEmailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            hintText: 'Example@gmail.com',
+                            prefixIcon: const Icon(
+                              Icons.mail_outline_rounded,
+                              color: AppColors.blushPink,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: AppColors.border,
+                                width: 1.4,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: AppColors.blushPink,
+                                width: 1.6,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 24),

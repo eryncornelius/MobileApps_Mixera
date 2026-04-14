@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 
+from shop.models import ProductVariant
 from users.models import Address
 
 
@@ -35,6 +36,8 @@ class Order(models.Model):
     total = models.PositiveIntegerField()
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid')
+    tracking_number = models.CharField(max_length=120, blank=True)
+    shipping_courier = models.CharField(max_length=80, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -47,6 +50,13 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+    )
     product_name = models.CharField(max_length=200)
     product_slug = models.CharField(max_length=200, blank=True)
     variant_size = models.CharField(max_length=10, blank=True)

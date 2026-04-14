@@ -98,7 +98,7 @@ class _SaleCard extends StatelessWidget {
                     topRight: Radius.circular(14),
                   ),
                   child: AspectRatio(
-                    aspectRatio: 0.85,
+                    aspectRatio: 1.0,
                     child: Image.network(
                       item.imageUrl,
                       fit: BoxFit.cover,

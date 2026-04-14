@@ -22,4 +22,8 @@ class AppRoutes {
   static const security = RouteNames.security;
   static const notificationSettings = RouteNames.notificationSettings;
   static const wardrobe = RouteNames.wardrobe;
+
+  static const wishlist = RouteNames.wishlist;
+  static const savedOutfits = RouteNames.savedOutfits;
+  static const savedTryOnPhotos = RouteNames.savedTryOnPhotos;
 }

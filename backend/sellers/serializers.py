@@ -84,8 +84,9 @@ class SellerProductImageUploadSerializer(serializers.Serializer):
 class SellerOrderUpdateSerializer(serializers.Serializer):
     tracking_number = serializers.CharField(max_length=120, required=False, allow_blank=True)
     shipping_courier = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    # Seller may only advance fulfillment: processing is set by payment/checkout, not here.
     status = serializers.ChoiceField(
-        choices=["processing", "shipped", "completed"],
+        choices=["shipped", "completed"],
         required=False,
     )
 

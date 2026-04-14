@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
+from django.db.utils import OperationalError
 
 from .models import Category, Product, WishlistItem
 from .serializers import CategorySerializer, ProductListSerializer, ProductDetailSerializer
@@ -59,37 +60,47 @@ class WishlistListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = (
-            Product.objects.filter(
-                is_active=True,
-                moderation_flagged=False,
-                wishlist_items__user=request.user,
+        try:
+            qs = (
+                Product.objects.filter(
+                    is_active=True,
+                    moderation_flagged=False,
+                    wishlist_items__user=request.user,
+                )
+                .select_related("category")
+                .prefetch_related("images", "variants")
+                .distinct()
+                .order_by("-wishlist_items__created_at")
             )
-            .select_related("category")
-            .prefetch_related("images", "variants")
-            .distinct()
-            .order_by("-wishlist_items__created_at")
-        )
-        return Response(ProductListSerializer(qs, many=True, context={"request": request}).data)
+            return Response(ProductListSerializer(qs, many=True, context={"request": request}).data)
+        except OperationalError:
+            # Safety fallback when migration is not applied yet.
+            return Response([])
 
 
 class WishlistToggleView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        product_id = request.data.get("product_id")
-        if not product_id:
-            return Response({"detail": "product_id wajib diisi."}, status=400)
-        product = Product.objects.filter(
-            pk=product_id,
-            is_active=True,
-            moderation_flagged=False,
-        ).first()
-        if not product:
-            return Response({"detail": "Produk tidak ditemukan."}, status=404)
-        row = WishlistItem.objects.filter(user=request.user, product=product).first()
-        if row:
-            row.delete()
-            return Response({"is_wishlisted": False})
-        WishlistItem.objects.create(user=request.user, product=product)
-        return Response({"is_wishlisted": True})
+        try:
+            product_id = request.data.get("product_id")
+            if not product_id:
+                return Response({"detail": "product_id wajib diisi."}, status=400)
+            product = Product.objects.filter(
+                pk=product_id,
+                is_active=True,
+                moderation_flagged=False,
+            ).first()
+            if not product:
+                return Response({"detail": "Produk tidak ditemukan."}, status=404)
+            row = WishlistItem.objects.filter(user=request.user, product=product).first()
+            if row:
+                row.delete()
+                return Response({"is_wishlisted": False})
+            WishlistItem.objects.create(user=request.user, product=product)
+            return Response({"is_wishlisted": True})
+        except OperationalError:
+            return Response(
+                {"detail": "Wishlist belum siap. Jalankan migrasi database terlebih dulu."},
+                status=503,
+            )

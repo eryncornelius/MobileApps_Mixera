@@ -261,6 +261,10 @@ class SellerRemoteDatasource {
     int id, {
     String? name,
     int? price,
+    int? discountPrice,
+    bool clearDiscountPrice = false,
+    String? description,
+    String? color,
     int? stock,
     bool? isActive,
     String? imageUrl,
@@ -271,6 +275,10 @@ class SellerRemoteDatasource {
       final data = <String, dynamic>{};
       if (name != null) data['name'] = name;
       if (price != null) data['price'] = price;
+      if (discountPrice != null) data['discount_price'] = discountPrice;
+      if (clearDiscountPrice) data['discount_price'] = null;
+      if (description != null) data['description'] = description;
+      if (color != null) data['color'] = color;
       if (stock != null) data['stock'] = stock;
       if (isActive != null) data['is_active'] = isActive;
       if (imageUrl != null && imageUrl.isNotEmpty) data['image_url'] = imageUrl;

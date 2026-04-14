@@ -1,16 +1,19 @@
-# frontend
+# MIXÉRA — Frontend (Flutter)
 
-A new Flutter project.
+Aplikasi mobile pembeli + mode seller; API memakai backend Django di folder `../backend`.
 
-## Getting Started
+## Mulai
 
-This project is a starting point for a Flutter application.
+1. Salin `.env.example` → `.env` dan set **`API_BASE_URL`** (mis. `http://10.0.2.2:8000` untuk emulator Android menuju host).
+2. `flutter pub get`
+3. `flutter run`
 
-A few resources to get you started if this is your first Flutter project:
+## Dokumentasi per fitur
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Setiap modul UI utama punya **`README.md`** di dalam foldernya:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+`lib/features/<nama_fitur>/README.md` — isi: tujuan fitur, lapisan `data` / `presentation`, prefix API yang dipakai.
+
+## Jaringan & auth
+
+- Ringkasan interceptor token: `lib/core/network/README.md`.

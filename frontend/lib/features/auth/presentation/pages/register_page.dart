@@ -7,8 +7,26 @@ import '../controllers/auth_controller.dart';
 import '../widgets/social_login_buttons.dart';
 import '../../../../app/routes/route_names.dart';
 
-class RegisterPage extends StatelessWidget {
+class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  bool get _hasMinLength =>
+      Get.find<AuthController>().passwordController.text.length >= 8;
+  bool get _hasNumber =>
+      Get.find<AuthController>().passwordController.text.contains(RegExp(r'\d'));
+  bool get _hasSymbol => Get.find<AuthController>()
+      .passwordController
+      .text
+      .contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
+  bool get _hasMixedCase {
+    final pw = Get.find<AuthController>().passwordController.text;
+    return pw.contains(RegExp(r'[a-z]')) && pw.contains(RegExp(r'[A-Z]'));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +82,7 @@ class RegisterPage extends StatelessWidget {
                 () => TextFormField(
                   controller: authC.passwordController,
                   obscureText: authC.isPasswordHidden.value,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: 'Enter Your Password',
                     suffixIcon: IconButton(
@@ -78,7 +97,15 @@ class RegisterPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+
+              _PasswordRequirementRow(label: 'Minimum 8 characters', met: _hasMinLength),
+              _PasswordRequirementRow(label: 'Include a number', met: _hasNumber),
+              _PasswordRequirementRow(label: 'Include a symbol (!@#\$)', met: _hasSymbol),
+              _PasswordRequirementRow(
+                  label: 'Mix of upper & lowercase letters', met: _hasMixedCase),
+
+              const SizedBox(height: 20),
 
               Obx(
                 () => ElevatedButton(
@@ -142,6 +169,31 @@ class RegisterPage extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PasswordRequirementRow extends StatelessWidget {
+  final String label;
+  final bool met;
+
+  const _PasswordRequirementRow({required this.label, required this.met});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(
+            met ? Icons.check_rounded : Icons.circle_outlined,
+            size: 16,
+            color: met ? AppColors.blushPink : AppColors.secondaryText,
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: AppTextStyles.small),
+        ],
       ),
     );
   }

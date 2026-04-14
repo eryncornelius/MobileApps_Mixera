@@ -43,6 +43,10 @@ def confirm_batch(*, batch: UploadBatch) -> list[WardrobeItem]:
 
     items = []
     for candidate in selected:
+        # Prefer AI crop so one outfit photo becomes distinct wardrobe thumbnails.
+        item_image = (
+            candidate.cropped_image if candidate.cropped_image else candidate.photo.image
+        )
         item = WardrobeItem.objects.create(
             user=batch.user,
             source_candidate=candidate,
@@ -50,7 +54,7 @@ def confirm_batch(*, batch: UploadBatch) -> list[WardrobeItem]:
             subcategory=candidate.subcategory,
             color=candidate.color,
             style_tags=candidate.style_tags,
-            image=candidate.photo.image,
+            image=item_image,
         )
         items.append(item)
 

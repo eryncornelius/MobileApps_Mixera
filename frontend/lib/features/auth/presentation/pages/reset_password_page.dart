@@ -3,18 +3,38 @@ import 'package:get/get.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../shared/widgets/inputs/otp_input_field.dart';
 import '../controllers/auth_controller.dart';
 
-class ResetPasswordPage extends StatelessWidget {
+class ResetPasswordPage extends StatefulWidget {
   final String email;
 
   const ResetPasswordPage({super.key, required this.email});
+
+  @override
+  State<ResetPasswordPage> createState() => _ResetPasswordPageState();
+}
+
+class _ResetPasswordPageState extends State<ResetPasswordPage> {
+  bool get _hasMinLength =>
+      Get.find<AuthController>().newPasswordController.text.length >= 8;
+  bool get _hasNumber =>
+      Get.find<AuthController>().newPasswordController.text.contains(RegExp(r'\d'));
+  bool get _hasSymbol => Get.find<AuthController>()
+      .newPasswordController
+      .text
+      .contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
+  bool get _hasMixedCase {
+    final pw = Get.find<AuthController>().newPasswordController.text;
+    return pw.contains(RegExp(r'[a-z]')) && pw.contains(RegExp(r'[A-Z]'));
+  }
 
   @override
   Widget build(BuildContext context) {
     final authC = Get.find<AuthController>();
 
     return Scaffold(
+      backgroundColor: AppColors.warmCream,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
@@ -39,18 +59,9 @@ class ResetPasswordPage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Enter the OTP code sent to your email\nand create a new password.',
+                'Your new password must be different\nfrom previously used passwords.',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.description.copyWith(height: 1.5),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                email,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.description.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryText,
-                ),
               ),
               const SizedBox(height: 48),
               Stack(
@@ -73,26 +84,12 @@ class ResetPasswordPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('OTP Code', style: AppTextStyles.description),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: authC.resetCodeController,
-                          keyboardType: TextInputType.number,
-                          maxLength: 4,
-                          decoration: InputDecoration(
-                            counterText: '',
-                            hintText: 'Enter 4-digit OTP',
-                            fillColor: Colors.white,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
-                                width: 1.4,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
+                        Text('Enter OTP Code', style: AppTextStyles.description),
+                        const SizedBox(height: 12),
+
+                        OtpInputField(controllers: authC.resetOtpControllers),
+
+                        const SizedBox(height: 24),
 
                         Text('New Password', style: AppTextStyles.description),
                         const SizedBox(height: 8),
@@ -100,6 +97,7 @@ class ResetPasswordPage extends StatelessWidget {
                           () => TextFormField(
                             controller: authC.newPasswordController,
                             obscureText: authC.isResetPasswordHidden.value,
+                            onChanged: (_) => setState(() {}),
                             decoration: InputDecoration(
                               hintText: 'Enter New Password',
                               suffixIcon: IconButton(
@@ -107,11 +105,10 @@ class ResetPasswordPage extends StatelessWidget {
                                   authC.isResetPasswordHidden.value
                                       ? Icons.visibility_off_outlined
                                       : Icons.visibility_outlined,
-                                  color: AppColors.primaryText,
+                                  color: AppColors.secondaryText,
                                 ),
                                 onPressed: authC.toggleResetPasswordVisibility,
                               ),
-                              fillColor: Colors.white,
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: const BorderSide(
@@ -119,21 +116,36 @@ class ResetPasswordPage extends StatelessWidget {
                                   width: 1.4,
                                 ),
                               ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: AppColors.blushPink,
+                                  width: 1.6,
+                                ),
+                              ),
                             ),
                           ),
                         ),
+                        const SizedBox(height: 10),
+
+                        _PasswordRequirementRow(
+                            label: 'Minimum 8 characters', met: _hasMinLength),
+                        _PasswordRequirementRow(
+                            label: 'Include a number', met: _hasNumber),
+                        _PasswordRequirementRow(
+                            label: 'Include a symbol (!@#\$)', met: _hasSymbol),
+                        _PasswordRequirementRow(
+                            label: 'Mix of upper & lowercase letters',
+                            met: _hasMixedCase),
+
                         const SizedBox(height: 20),
 
-                        Text(
-                          'Confirm Password',
-                          style: AppTextStyles.description,
-                        ),
+                        Text('Confirm Password', style: AppTextStyles.description),
                         const SizedBox(height: 8),
                         Obx(
                           () => TextFormField(
                             controller: authC.confirmPasswordController,
-                            obscureText:
-                                authC.isResetConfirmPasswordHidden.value,
+                            obscureText: authC.isResetConfirmPasswordHidden.value,
                             decoration: InputDecoration(
                               hintText: 'Confirm New Password',
                               suffixIcon: IconButton(
@@ -141,17 +153,23 @@ class ResetPasswordPage extends StatelessWidget {
                                   authC.isResetConfirmPasswordHidden.value
                                       ? Icons.visibility_off_outlined
                                       : Icons.visibility_outlined,
-                                  color: AppColors.primaryText,
+                                  color: AppColors.secondaryText,
                                 ),
                                 onPressed:
                                     authC.toggleResetConfirmPasswordVisibility,
                               ),
-                              fillColor: Colors.white,
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: const BorderSide(
                                   color: AppColors.border,
                                   width: 1.4,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: AppColors.blushPink,
+                                  width: 1.6,
                                 ),
                               ),
                             ),
@@ -163,10 +181,8 @@ class ResetPasswordPage extends StatelessWidget {
                           () => ElevatedButton(
                             onPressed: authC.isLoading.value
                                 ? null
-                                : () => authC.resetPassword(
-                                    context,
-                                    email: email,
-                                  ),
+                                : () => authC.resetPassword(context,
+                                    email: widget.email),
                             child: authC.isLoading.value
                                 ? const SizedBox(
                                     height: 20,
@@ -208,9 +224,7 @@ class ResetPasswordPage extends StatelessWidget {
               ),
               const SizedBox(height: 40),
               GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                },
+                onTap: () => Navigator.pop(context),
                 child: Text(
                   'Back',
                   style: AppTextStyles.description.copyWith(
@@ -223,6 +237,31 @@ class ResetPasswordPage extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PasswordRequirementRow extends StatelessWidget {
+  final String label;
+  final bool met;
+
+  const _PasswordRequirementRow({required this.label, required this.met});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(
+            met ? Icons.check_rounded : Icons.circle_outlined,
+            size: 16,
+            color: met ? AppColors.blushPink : AppColors.secondaryText,
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: AppTextStyles.small),
+        ],
       ),
     );
   }

@@ -4,7 +4,10 @@ import 'package:get/get.dart';
 import '../../../../app/routes/route_names.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/biometric/app_biometric_auth.dart';
+import '../../../../core/biometric/biometric_lock_storage.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../controllers/profile_controller.dart';
 import '../widgets/security_option_tile.dart';
 
 class SecurityPage extends StatefulWidget {
@@ -16,6 +19,58 @@ class SecurityPage extends StatefulWidget {
 
 class _SecurityPageState extends State<SecurityPage> {
   bool _biometricEnabled = false;
+  bool _biometricBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricPref();
+  }
+
+  Future<void> _loadBiometricPref() async {
+    final v = await BiometricLockStorage.isLockEnabled();
+    if (mounted) setState(() => _biometricEnabled = v);
+  }
+
+  Future<void> _onBiometricToggle(bool wantOn) async {
+    if (_biometricBusy) return;
+    setState(() => _biometricBusy = true);
+    try {
+      if (wantOn) {
+        final can = await AppBiometricAuth.instance.canUseBiometricSensor();
+        if (!mounted) return;
+        if (!can) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sidik jari tidak tersedia. Pastikan perangkat mendukung dan sidik jari sudah didaftarkan di pengaturan sistem.',
+              ),
+            ),
+          );
+          return;
+        }
+        final ok = await AppBiometricAuth.instance.authenticateToUnlock();
+        if (!mounted) return;
+        if (!ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Autentikasi dibatalkan atau gagal.'),
+            ),
+          );
+          return;
+        }
+        await BiometricLockStorage.setLockEnabled(true);
+        if (!mounted) return;
+        setState(() => _biometricEnabled = true);
+      } else {
+        await BiometricLockStorage.setLockEnabled(false);
+        if (!mounted) return;
+        setState(() => _biometricEnabled = false);
+      }
+    } finally {
+      if (mounted) setState(() => _biometricBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,32 +85,56 @@ class _SecurityPageState extends State<SecurityPage> {
               _buildHeader(context),
               const SizedBox(height: 28),
               // Change Password card
-              SecurityOptionTile(
-                icon: Icons.lock_outline_rounded,
-                title: 'Change Password',
-                description: 'Keep your account secure by changing your password',
-                children: [
-                  ElevatedButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, RouteNames.changePassword),
-                    child: const Text('Change Password'),
-                  ),
-                  const SizedBox(height: 12),
-                  _RequirementRow(label: 'Minimum 8 characters'),
-                  _RequirementRow(label: 'Include a number'),
-                  _RequirementRow(label: 'Include a symbol (!@#\$)'),
-                  _RequirementRow(label: 'Mix of upper & lowercase letters'),
-                ],
-              ),
+              Obx(() {
+                final provider =
+                    Get.find<ProfileController>().profile.value?.authProvider ?? 'email';
+                final isSocial = provider == 'google' || provider == 'facebook';
+                return SecurityOptionTile(
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Change Password',
+                  description: isSocial
+                      ? 'Password management is not available for ${provider[0].toUpperCase()}${provider.substring(1)} accounts'
+                      : 'Keep your account secure by changing your password',
+                  children: isSocial
+                      ? [
+                          Row(
+                            children: [
+                              const Icon(Icons.info_outline_rounded,
+                                  size: 16, color: AppColors.secondaryText),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'You signed in with ${provider[0].toUpperCase()}${provider.substring(1)}. Password changes are managed through your ${provider[0].toUpperCase()}${provider.substring(1)} account.',
+                                  style: AppTextStyles.small,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ]
+                      : [
+                          ElevatedButton(
+                            onPressed: () => Navigator.pushNamed(
+                                context, RouteNames.changePassword),
+                            child: const Text('Change Password'),
+                          ),
+                          const SizedBox(height: 12),
+                          _RequirementRow(label: 'Minimum 8 characters'),
+                          _RequirementRow(label: 'Include a number'),
+                          _RequirementRow(label: 'Include a symbol (!@#\$)'),
+                          _RequirementRow(label: 'Mix of upper & lowercase letters'),
+                        ],
+                );
+              }),
               const SizedBox(height: 16),
-              // Biometric card
+              // Sidik jari: kunci pembuka app (token sudah ada), bukan login server.
               SecurityOptionTile(
                 icon: Icons.fingerprint_rounded,
-                title: 'Biometric Authentication',
-                description: 'Use face ID or Fingerprint to log in faster and secure your account',
+                title: 'Sidik jari',
+                description:
+                    'Saat membuka aplikasi, Anda diminta sidik jari dulu. Hanya sensor biometrik (tanpa PIN pola sebagai pengganti).',
                 trailing: Switch(
                   value: _biometricEnabled,
-                  onChanged: (val) => setState(() => _biometricEnabled = val),
+                  onChanged: _biometricBusy ? null : _onBiometricToggle,
                   activeThumbColor: AppColors.blushPink,
                   activeTrackColor: AppColors.roseMist,
                   inactiveThumbColor: AppColors.secondaryText,

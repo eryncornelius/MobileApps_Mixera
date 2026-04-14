@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+from datetime import timedelta
 from environs import Env
 from pathlib import Path
 from dotenv import load_dotenv
@@ -37,6 +38,42 @@ MIDTRANS_CLIENT_KEY = os.getenv("MIDTRANS_CLIENT_KEY",default='')
 MIDTRANS_MERCHANT_ID = os.getenv("MIDTRANS_MERCHANT_ID",default='')
 MIDTRANS_NOTIFICATION_URL=os.getenv("MIDTRANS_NOTIFICATION_URL",default='')
 MIDTRANS_IS_PRODUCTION = env.bool("MIDTRANS_IS_PRODUCTION", default=False)
+BITESHIP_API_KEY = os.getenv("BITESHIP_API_KEY", default="").strip()
+# Opsional: dipakai integrasi lain / dashboard Biteship (bukan auth Rates API).
+BITESHIP_ID_KEY = os.getenv("BITESHIP_ID_KEY", default="").strip()
+# Kode pos asal fallback: produk platform (tanpa seller) atau seller belum isi ship_from di profil.
+BITESHIP_ORIGIN_POSTAL_CODE = os.getenv("BITESHIP_ORIGIN_POSTAL_CODE", default="12430").strip()
+# Daftar kurir Biteship, dipisah koma (lihat dokumentasi Courier API).
+BITESHIP_COURIERS = os.getenv("BITESHIP_COURIERS", default="jne,sicepat,tiki").strip()
+# Estimasi gram per qty baris keranjang (produk tidak punya berat di DB).
+CART_ESTIMATE_WEIGHT_GRAMS_PER_UNIT = int(os.getenv("CART_ESTIMATE_WEIGHT_GRAMS_PER_UNIT", "200"))
+# Ongkir checkout bila klien tidak mengirim delivery_fee tervalidasi.
+DEFAULT_DELIVERY_FEE = int(os.getenv("DEFAULT_DELIVERY_FEE", "20000"))
+# Marketplace seller: komisi platform dari subtotal baris seller (basis poin, 10000 = 100%)
+SELLER_PLATFORM_FEE_BPS = int(os.getenv("SELLER_PLATFORM_FEE_BPS", "1000"))
+
+# OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+# Firebase Admin SDK (FCM push notifications)
+FIREBASE_SERVICE_ACCOUNT_JSON = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
+
+# Public base URL for building absolute media URLs (set to ngrok/IP when testing on device)
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").strip().rstrip("/")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# Mix Match preview: gpt-image-1.5 multi-image edit (falls back to PIL if disabled or API fails)
+MIX_PREVIEW_USE_OPENAI = os.getenv("MIX_PREVIEW_USE_OPENAI", "true").lower() in ("1", "true", "yes")
+OPENAI_MIX_PREVIEW_MODEL = os.getenv("OPENAI_MIX_PREVIEW_MODEL", "gpt-image-1.5")
+OPENAI_MIX_PREVIEW_SIZE = os.getenv("OPENAI_MIX_PREVIEW_SIZE", "1024x1536")
+# Virtual try-on: gpt-image-1.5 images.edit(person + outfit reference(s))
+TRYON_USE_OPENAI = os.getenv("TRYON_USE_OPENAI", "true").lower() in ("1", "true", "yes")
+OPENAI_TRYON_MODEL = os.getenv("OPENAI_TRYON_MODEL", "gpt-image-1.5")
+OPENAI_TRYON_SIZE = os.getenv("OPENAI_TRYON_SIZE", "1024x1536")
+# Wardrobe: isolate each detected garment via ``images.edit`` (GPT Image family only).
+# Default ``gpt-image-1.5`` matches mix/try-on quality; override with gpt-image-1-mini for lower cost.
+WARDROBE_CUTOUT_USE_OPENAI = os.getenv("WARDROBE_CUTOUT_USE_OPENAI", "true").lower() in ("1", "true", "yes")
+OPENAI_WARDROBE_CUTOUT_MODEL = os.getenv("OPENAI_WARDROBE_CUTOUT_MODEL", "gpt-image-1.5")
+OPENAI_WARDROBE_CUTOUT_SIZE = os.getenv("OPENAI_WARDROBE_CUTOUT_SIZE", "1024x1024")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -68,6 +105,7 @@ INSTALLED_APPS = [
     'orders',
     'payments',
     'wallet',
+    'sellers',
 ]
 
 MIDDLEWARE = [
@@ -138,6 +176,18 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
+}
+
+# Default SimpleJWT access lifetime is very short (~5 min) — clients that do not
+# refresh often hit 401 and feel "logged out". Override via .env if needed.
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("JWT_ACCESS_MINUTES", "120"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=int(os.getenv("JWT_REFRESH_DAYS", "30"))
+    ),
+    "ROTATE_REFRESH_TOKENS": False,
 }
 
 LANGUAGE_CODE = 'en-us'

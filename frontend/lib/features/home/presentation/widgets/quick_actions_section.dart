@@ -6,13 +6,11 @@ import '../../data/models/quick_action_model.dart';
 
 class QuickActionsSection extends StatelessWidget {
   final List<QuickActionModel> actions;
-  final VoidCallback? onViewAll;
   final void Function(QuickActionModel)? onActionTap;
 
   const QuickActionsSection({
     super.key,
     required this.actions,
-    this.onViewAll,
     this.onActionTap,
   });
 
@@ -26,6 +24,8 @@ class QuickActionsSection extends StatelessWidget {
         return Icons.favorite_border_rounded;
       case 'bag':
         return Icons.shopping_bag_outlined;
+      case 'bookmark':
+        return Icons.bookmark_outline_rounded;
       default:
         return Icons.circle_outlined;
     }
@@ -36,32 +36,17 @@ class QuickActionsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Quick Actions', style: AppTextStyles.section),
-            GestureDetector(
-              onTap: onViewAll,
-              child: Text(
-                'View all →',
-                style: AppTextStyles.small.copyWith(
-                  color: AppColors.blushPink,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
+        Text('Quick Actions', style: AppTextStyles.section),
         const SizedBox(height: 14),
-        // Action grid
+        // Action grid — lebar merata agar label panjang tidak mudah patah 2 baris
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: actions.map((action) {
-            return _ActionItem(
-              label: action.label,
-              icon: _iconForName(action.iconName),
-              onTap: () => onActionTap?.call(action),
+            return Expanded(
+              child: _ActionItem(
+                label: action.label,
+                icon: _iconForName(action.iconName),
+                onTap: () => onActionTap?.call(action),
+              ),
             );
           }).toList(),
         ),
@@ -81,8 +66,8 @@ class _ActionItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(
-        width: 76,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Column(
           children: [
             Container(
@@ -101,9 +86,12 @@ class _ActionItem extends StatelessWidget {
               style: AppTextStyles.small.copyWith(
                 color: AppColors.primaryText,
                 fontWeight: FontWeight.w500,
+                fontSize: 10.5,
+                height: 1.2,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

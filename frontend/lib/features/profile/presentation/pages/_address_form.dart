@@ -35,7 +35,48 @@ class AddressForm extends StatelessWidget {
               hint: '+1 555 000-0000', type: TextInputType.phone),
           const SizedBox(height: 16),
           _field('Street Address', profileC.streetAddressController,
-              hint: '123 Main St'),
+              hint: '123 Main St', onChanged: profileC.onAddressQueryChanged),
+          Obx(() {
+            if (profileC.isSearchingAddress.value) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: LinearProgressIndicator(minHeight: 2, color: AppColors.blushPink),
+              );
+            }
+            if (profileC.addressSuggestions.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Container(
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                color: AppColors.warmCream,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: profileC.addressSuggestions
+                    .map(
+                      (s) => ListTile(
+                        dense: true,
+                        title: Text(
+                          s.streetAddress.isNotEmpty ? s.streetAddress : s.fullAddress,
+                          style: AppTextStyles.small.copyWith(color: AppColors.primaryText),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          s.fullAddress,
+                          style: AppTextStyles.small.copyWith(color: AppColors.secondaryText, fontSize: 11),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => profileC.applyAddressSuggestion(s),
+                      ),
+                    )
+                    .toList(),
+              ),
+            );
+          }),
           const SizedBox(height: 16),
           _field('City', profileC.cityController, hint: 'City'),
           const SizedBox(height: 16),
@@ -82,7 +123,7 @@ class AddressForm extends StatelessWidget {
   }
 
   Widget _field(String label, TextEditingController ctrl,
-      {String hint = '', TextInputType type = TextInputType.text}) {
+      {String hint = '', TextInputType type = TextInputType.text, ValueChanged<String>? onChanged}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -91,6 +132,7 @@ class AddressForm extends StatelessWidget {
         TextFormField(
           controller: ctrl,
           keyboardType: type,
+          onChanged: onChanged,
           decoration: InputDecoration(hintText: hint),
         ),
       ],

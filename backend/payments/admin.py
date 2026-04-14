@@ -26,8 +26,17 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(SavedCard)
 class SavedCardAdmin(admin.ModelAdmin):
-    list_display = ("user", "card_brand", "masked_card", "is_default", "created_at")
-    list_filter = ("is_default", "card_brand")
+    list_display = (
+        "user",
+        "card_brand",
+        "card_type",
+        "masked_card",
+        "expiry_month",
+        "expiry_year",
+        "is_default",
+        "created_at",
+    )
+    list_filter = ("is_default", "card_brand", "card_type")
     search_fields = ("user__email", "masked_card")
     readonly_fields = ("saved_token_id", "created_at")
     ordering = ("-created_at",)

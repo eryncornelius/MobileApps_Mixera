@@ -134,6 +134,17 @@ class ProfilePage extends StatelessWidget {
                     onTap: () =>
                         Navigator.pushNamed(context, RouteNames.savedAddresses),
                   ),
+                  if (user.isSeller) ...[
+                    _divider(),
+                    ProfileMenuTile(
+                      icon: Icons.storefront_outlined,
+                      label: 'Dashboard penjual',
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        RouteNames.sellerShell,
+                      ),
+                    ),
+                  ],
                 ]),
                 const SizedBox(height: 20),
                 Padding(
@@ -149,6 +160,12 @@ class ProfilePage extends StatelessWidget {
                     icon: Icons.auto_awesome_outlined,
                     label: 'Saved Outfits',
                     onTap: () => Navigator.pushNamed(context, RouteNames.savedOutfits),
+                  ),
+                  _divider(),
+                  ProfileMenuTile(
+                    icon: Icons.person_outline_rounded,
+                    label: 'Foto tubuh (Try-On)',
+                    onTap: () => Navigator.pushNamed(context, RouteNames.personPhotosTryOn),
                   ),
                   _divider(),
                   ProfileMenuTile(

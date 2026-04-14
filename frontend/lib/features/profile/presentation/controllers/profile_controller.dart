@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 
 import '../../data/datasources/profile_remote_datasource.dart';
 import '../../data/models/address_model.dart';
+import '../../data/models/address_suggestion_model.dart';
 import '../../data/models/notification_settings_model.dart';
 import '../../data/models/profile_model.dart';
 
@@ -34,6 +36,9 @@ class ProfileController extends GetxController {
 
   final selectedAddressLabel = 'home'.obs;
   final isPrimaryAddress = false.obs;
+  final addressSuggestions = <AddressSuggestionModel>[].obs;
+  final isSearchingAddress = false.obs;
+  Timer? _addressSearchDebounce;
 
   final isChangingPassword = false.obs;
 
@@ -149,6 +154,7 @@ void fillAddressForm(AddressModel address) {
   postalCodeController.text = address.postalCode;
   selectedAddressLabel.value = address.label;
   isPrimaryAddress.value = address.isPrimary;
+  clearAddressSuggestions();
 }
 
 void clearAddressForm() {
@@ -160,6 +166,38 @@ void clearAddressForm() {
   postalCodeController.clear();
   selectedAddressLabel.value = 'home';
   isPrimaryAddress.value = false;
+  clearAddressSuggestions();
+}
+
+void onAddressQueryChanged(String query) {
+  _addressSearchDebounce?.cancel();
+  final q = query.trim();
+  if (q.length < 3) {
+    clearAddressSuggestions();
+    return;
+  }
+  isSearchingAddress.value = true;
+  _addressSearchDebounce = Timer(const Duration(milliseconds: 350), () async {
+    final suggestions = await _remote.searchAddressSuggestions(q);
+    addressSuggestions.assignAll(suggestions);
+    isSearchingAddress.value = false;
+  });
+}
+
+void applyAddressSuggestion(AddressSuggestionModel picked) {
+  streetAddressController.text = picked.streetAddress.isNotEmpty
+      ? picked.streetAddress
+      : picked.fullAddress;
+  if (picked.city.isNotEmpty) cityController.text = picked.city;
+  if (picked.state.isNotEmpty) stateController.text = picked.state;
+  if (picked.postalCode.isNotEmpty) postalCodeController.text = picked.postalCode;
+  clearAddressSuggestions();
+}
+
+void clearAddressSuggestions() {
+  _addressSearchDebounce?.cancel();
+  isSearchingAddress.value = false;
+  addressSuggestions.clear();
 }
 
 Future<bool> createAddress() async {
@@ -311,6 +349,7 @@ Future<bool> saveNotificationSettings({
 
   @override
   void onClose() {
+    _addressSearchDebounce?.cancel();
     usernameController.dispose();
     emailController.dispose();
     phoneController.dispose();

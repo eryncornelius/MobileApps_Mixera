@@ -11,9 +11,9 @@ from .views import (
 )
 
 urlpatterns = [
-    # Snap — wallet top-up only
+    # Snap — wallet top-up (QRIS, VA, dll.)
     path("create-snap-transaction/", CreateSnapTransactionView.as_view(), name="create_snap_transaction"),
-    # Core API card charge — shop checkout
+    # Core API card charge — shop checkout & wallet top-up (kartu / kartu tersimpan)
     path("card/charge/", CardChargeView.as_view(), name="card_charge"),
     # Midtrans webhook
     path("notification/", MidtransNotificationView.as_view(), name="midtrans_notification"),

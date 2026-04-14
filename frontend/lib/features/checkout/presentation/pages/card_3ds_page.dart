@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -16,7 +18,7 @@ class Card3DSArgs {
 }
 
 /// Result returned to checkout after 3DS completes.
-enum Card3DSResult { success, pending, failed, cancelled }
+enum Card3DSResult { success, pending, failed, cancelled, staleRedirect }
 
 class Card3DSPage extends StatefulWidget {
   final Card3DSArgs args;
@@ -30,44 +32,110 @@ class _Card3DSPageState extends State<Card3DSPage> {
   late final WebViewController _controller;
   bool _loading = true;
   bool _polling = false;
+  bool _popped = false;
+
+  Timer? _statusTimer;
+  int _statusPollCount = 0;
+  static const int _maxBackgroundPolls = 120;
 
   final _ds = CardPaymentRemoteDatasource();
-
-  // Midtrans 3DS pages all live under these domains.
-  static const _midtransDomains = [
-    'app.sandbox.midtrans.com',
-    'app.midtrans.com',
-    'api.sandbox.midtrans.com',
-    'api.midtrans.com',
-  ];
 
   @override
   void initState() {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 '
+        '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+      )
       ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) => setState(() => _loading = true),
+        onPageStarted: (_) {
+          if (mounted) setState(() => _loading = true);
+        },
         onPageFinished: _onPageFinished,
         onNavigationRequest: _onNavigate,
       ))
       ..loadRequest(Uri.parse(widget.args.redirectUrl));
+
+    // 3DS2 / sandbox sering tidak redirect ke mixera:// — polling status tetap jalan.
+    _statusTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      unawaited(_pollMidtransStatus(background: true));
+    });
+  }
+
+  @override
+  void dispose() {
+    _statusTimer?.cancel();
+    super.dispose();
+  }
+
+  void _safePop(Card3DSResult result) {
+    if (!mounted || _popped) return;
+    _popped = true;
+    _statusTimer?.cancel();
+    Navigator.pop(context, result);
+  }
+
+  Future<void> _pollMidtransStatus({required bool background}) async {
+    if (!mounted || _popped) return;
+    if (_polling && background) return;
+
+    if (background) {
+      _statusPollCount++;
+      if (_statusPollCount > _maxBackgroundPolls) {
+        _statusTimer?.cancel();
+        if (mounted && !_popped && !_polling) {
+          _safePop(Card3DSResult.pending);
+        }
+        return;
+      }
+    }
+
+    try {
+      final status =
+          await _ds.getTransactionStatus(widget.args.midtransOrderId);
+      final tx = status['transaction_status'] as String? ?? 'pending';
+      final fraud = status['fraud_status'] as String? ?? '';
+
+      if ((tx == 'capture' || tx == 'settlement') &&
+          (fraud == 'accept' || fraud.isEmpty)) {
+        if (background) {
+          if (mounted) setState(() => _polling = true);
+        }
+        _safePop(Card3DSResult.success);
+        return;
+      }
+      if (tx == 'deny' ||
+          tx == 'failure' ||
+          tx == 'cancel' ||
+          tx == 'expire') {
+        _safePop(Card3DSResult.failed);
+      }
+    } catch (_) {
+      // abaikan — percobaan berikutnya
+    }
   }
 
   void _onPageFinished(String url) {
     if (mounted) setState(() => _loading = false);
-    if (_polling) return;
+    if (_popped) return;
 
-    // Midtrans Core API doesn't honor callbacks.finish for 3DS — the "Card is
-    // authenticated" page has no redirect configured. Inject JS to detect the
-    // completion text and navigate to our intercept URL so onNavigationRequest
-    // can pick it up without any Midtrans dashboard configuration.
     _controller.runJavaScript('''
       (function() {
         try {
-          var txt = document.body ? (document.body.innerText || '') : '';
-          if (txt.indexOf('Card is authenticated') !== -1 ||
-              txt.indexOf('authenticated successfully') !== -1) {
+          var txt = (document.body && document.body.innerText) ? document.body.innerText : '';
+          var lower = txt.toLowerCase();
+          if (txt.indexOf("Transaction doesn't exist") !== -1 ||
+              txt.indexOf("Transaction does not exist") !== -1) {
+            window.location.href = 'mixera://3ds/stale';
+            return;
+          }
+          if (lower.indexOf('card is authenticated') !== -1 ||
+              lower.indexOf('authenticated successfully') !== -1 ||
+              lower.indexOf('authentication successful') !== -1 ||
+              lower.indexOf('authentication completed') !== -1 ||
+              lower.indexOf('payment successful') !== -1) {
             window.location.href = 'mixera://3ds/done';
           }
         } catch(e) {}
@@ -76,23 +144,28 @@ class _Card3DSPageState extends State<Card3DSPage> {
   }
 
   NavigationDecision _onNavigate(NavigationRequest req) {
-    final isMidtrans =
-        _midtransDomains.any((d) => req.url.contains(d));
-    if (!isMidtrans && !_polling) {
-      _handleAuthComplete();
+    final url = req.url;
+    if (url.startsWith('mixera://3ds/stale')) {
+      if (!_popped && mounted) {
+        _safePop(Card3DSResult.staleRedirect);
+      }
+      return NavigationDecision.prevent;
+    }
+    // Hanya deep link app — jangan anggap domain bank ACS sebagai "selesai".
+    if (url.startsWith('mixera://3ds/done') || url.startsWith('mixera://')) {
+      if (!_popped) unawaited(_finalizeFromRedirect());
       return NavigationDecision.prevent;
     }
     return NavigationDecision.navigate;
   }
 
-  Future<void> _handleAuthComplete() async {
-    if (_polling) return;
-    setState(() => _polling = true);
+  /// Setelah redirect (mixera://3ds/done atau domain lain): polling singkat.
+  Future<void> _finalizeFromRedirect() async {
+    if (_popped) return;
+    _statusTimer?.cancel();
+    if (mounted) setState(() => _polling = true);
 
-    Card3DSResult result = Card3DSResult.pending;
-
-    // Poll up to 6 times, 2 s apart (12 s total)
-    for (int i = 0; i < 6; i++) {
+    for (var i = 0; i < 15 && mounted && !_popped; i++) {
       await Future<void>.delayed(const Duration(seconds: 2));
       try {
         final status =
@@ -102,19 +175,27 @@ class _Card3DSPageState extends State<Card3DSPage> {
 
         if ((tx == 'capture' || tx == 'settlement') &&
             (fraud == 'accept' || fraud.isEmpty)) {
-          result = Card3DSResult.success;
-          break;
+          _safePop(Card3DSResult.success);
+          return;
         }
-        if (tx == 'deny' || tx == 'failure' || tx == 'cancel' || tx == 'expire') {
-          result = Card3DSResult.failed;
-          break;
+        if (tx == 'deny' ||
+            tx == 'failure' ||
+            tx == 'cancel' ||
+            tx == 'expire') {
+          _safePop(Card3DSResult.failed);
+          return;
         }
-      } catch (_) {
-        // keep polling
-      }
+      } catch (_) {}
     }
 
-    if (mounted) Navigator.pop(context, result);
+    if (mounted && !_popped) {
+      _safePop(Card3DSResult.pending);
+    }
+  }
+
+  Future<void> _onManualDone() async {
+    if (_popped || _polling) return;
+    await _finalizeFromRedirect();
   }
 
   @override
@@ -124,13 +205,12 @@ class _Card3DSPageState extends State<Card3DSPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => Navigator.pop(context, Card3DSResult.cancelled),
+                    onTap: () => _safePop(Card3DSResult.cancelled),
                     child: const Icon(Icons.close_rounded,
                         size: 24, color: AppColors.primaryText),
                   ),
@@ -155,6 +235,15 @@ class _Card3DSPageState extends State<Card3DSPage> {
                 child: Text('Verify Payment', style: AppTextStyles.headline),
               ),
             ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'Jika layar bank sudah selesai tapi tidak lanjut otomatis, '
+                'ketuk tombol di bawah.',
+                style: AppTextStyles.small,
+              ),
+            ),
             const SizedBox(height: 8),
             Expanded(
               child: Stack(
@@ -176,7 +265,7 @@ class _Card3DSPageState extends State<Card3DSPage> {
                                 color: AppColors.blushPink),
                             const SizedBox(height: 16),
                             Text(
-                              'Verifying payment...',
+                              'Memverifikasi pembayaran…',
                               style: AppTextStyles.description
                                   .copyWith(color: Colors.white),
                             ),
@@ -185,6 +274,28 @@ class _Card3DSPageState extends State<Card3DSPage> {
                       ),
                     ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: (_polling || _popped) ? null : _onManualDone,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.blushPink,
+                    side: const BorderSide(color: AppColors.blushPink),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Sudah selesai di halaman bank',
+                    style: AppTextStyles.small.copyWith(
+                      color: (_polling || _popped)
+                          ? AppColors.secondaryText
+                          : AppColors.blushPink,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
