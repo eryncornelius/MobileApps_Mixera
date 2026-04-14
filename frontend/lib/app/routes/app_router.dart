@@ -20,7 +20,10 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/saved_addresses_page.dart';
+import '../../features/profile/presentation/pages/saved_try_on_photos_page.dart';
 import '../../features/profile/presentation/pages/security_page.dart';
+import '../../features/profile/presentation/pages/wishlist_page.dart';
+import '../../features/mix_match/presentation/pages/saved_outfits_page.dart';
 import '../../features/shop/presentation/pages/product_detail_page.dart';
 import '../../features/shop/presentation/pages/search_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
@@ -30,6 +33,7 @@ import '../../features/wallet/presentation/pages/wallet_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
 import '../../features/orders/presentation/pages/orders_page.dart';
 import '../../features/wardrobe/presentation/pages/wardrobe_page.dart';
+import '../../features/seller/presentation/pages/seller_shell_page.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -60,6 +64,12 @@ class AppRouter {
       case RouteNames.mainShell:
         return MaterialPageRoute(
           builder: (_) => const MainShellPage(),
+          settings: settings,
+        );
+
+      case RouteNames.sellerShell:
+        return MaterialPageRoute(
+          builder: (_) => const SellerShellPage(),
           settings: settings,
         );
 
@@ -161,6 +171,15 @@ class AppRouter {
 
       case RouteNames.wardrobe:
         return MaterialPageRoute(builder: (_) => const WardrobePage());
+
+      case RouteNames.wishlist:
+        return MaterialPageRoute(builder: (_) => const WishlistPage());
+
+      case RouteNames.savedOutfits:
+        return MaterialPageRoute(builder: (_) => const SavedOutfitsPage());
+
+      case RouteNames.savedTryOnPhotos:
+        return MaterialPageRoute(builder: (_) => const SavedTryOnPhotosPage());
 
       default:
         return MaterialPageRoute(

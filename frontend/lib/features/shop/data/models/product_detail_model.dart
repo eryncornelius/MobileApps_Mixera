@@ -34,6 +34,9 @@ class ProductDetailModel extends ProductModel {
   final String description;
   final List<ProductImageModel> images;
   final List<ProductVariantModel> variants;
+  final int? sellerId;
+  final String sellerStoreName;
+  final String sellerPhone;
 
   const ProductDetailModel({
     required super.id,
@@ -45,10 +48,18 @@ class ProductDetailModel extends ProductModel {
     super.categorySlug,
     super.color,
     super.isNew,
+    super.isActive,
+    super.moderationFlagged,
+    super.moderationNote,
+    super.totalStock,
     super.primaryImage,
+    super.isWishlisted,
     required this.description,
     required this.images,
     required this.variants,
+    this.sellerId,
+    this.sellerStoreName = '',
+    this.sellerPhone = '',
   });
 
   factory ProductDetailModel.fromJson(Map<String, dynamic> json) {
@@ -62,6 +73,10 @@ class ProductDetailModel extends ProductModel {
     ).imageUrl;
 
     final cat = json['category'] as Map<String, dynamic>?;
+    final variantList = (json['variants'] as List? ?? [])
+        .map((e) => ProductVariantModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    final totalStock = variantList.fold<int>(0, (s, v) => s + v.stock);
 
     return ProductDetailModel(
       id: json['id'] as int,
@@ -73,12 +88,18 @@ class ProductDetailModel extends ProductModel {
       categorySlug: cat?['slug'] as String?,
       color: json['color'] as String? ?? '',
       isNew: json['is_new'] as bool? ?? false,
+      isActive: json['is_active'] as bool? ?? true,
+      moderationFlagged: json['moderation_flagged'] as bool? ?? false,
+      moderationNote: json['moderation_note'] as String? ?? '',
+      totalStock: totalStock,
       primaryImage: primaryImg.isEmpty ? null : primaryImg,
       description: json['description'] as String? ?? '',
       images: images,
-      variants: (json['variants'] as List? ?? [])
-          .map((e) => ProductVariantModel.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList(),
+      variants: variantList,
+      sellerId: json['seller_id'] as int?,
+      sellerStoreName: json['seller_store_name'] as String? ?? '',
+      sellerPhone: json['seller_phone'] as String? ?? '',
+      isWishlisted: json['is_wishlisted'] as bool? ?? false,
     );
   }
 }

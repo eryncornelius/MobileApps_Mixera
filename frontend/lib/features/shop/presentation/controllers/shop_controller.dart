@@ -18,6 +18,8 @@ class ShopController extends GetxController {
   final searchResults = <ProductModel>[].obs;
   final isSearching = false.obs;
   final recentSearches = <String>[].obs;
+  final wishlist = <ProductModel>[].obs;
+  final isLoadingWishlist = false.obs;
 
   @override
   void onInit() {
@@ -81,6 +83,24 @@ class ShopController extends GetxController {
   }
 
   void clearRecentSearches() => recentSearches.clear();
+
+  Future<void> loadWishlist() async {
+    isLoadingWishlist.value = true;
+    try {
+      wishlist.value = await _ds.getWishlist();
+    } catch (_) {
+      wishlist.value = [];
+    } finally {
+      isLoadingWishlist.value = false;
+    }
+  }
+
+  Future<bool> toggleWishlistByProduct(int productId) async {
+    final saved = await _ds.toggleWishlist(productId);
+    await loadWishlist();
+    await fetchProducts(category: selectedCategorySlug.value.isEmpty ? null : selectedCategorySlug.value);
+    return saved;
+  }
 
   Future<ProductDetailModel?> getProductDetail(String slug) async {
     try {

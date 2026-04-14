@@ -8,7 +8,12 @@ class ProductModel {
   final String? categorySlug;
   final String color;
   final bool isNew;
+  final bool isActive;
+  final bool moderationFlagged;
+  final String moderationNote;
+  final int totalStock;
   final String? primaryImage;
+  final bool isWishlisted;
 
   const ProductModel({
     required this.id,
@@ -20,7 +25,12 @@ class ProductModel {
     this.categorySlug,
     this.color = '',
     this.isNew = false,
+    this.isActive = true,
+    this.moderationFlagged = false,
+    this.moderationNote = '',
+    this.totalStock = 0,
     this.primaryImage,
+    this.isWishlisted = false,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -34,7 +44,12 @@ class ProductModel {
       categorySlug: json['category_slug'] as String?,
       color: json['color'] as String? ?? '',
       isNew: json['is_new'] as bool? ?? false,
+      isActive: json['is_active'] as bool? ?? true,
+      moderationFlagged: json['moderation_flagged'] as bool? ?? false,
+      moderationNote: json['moderation_note'] as String? ?? '',
+      totalStock: json['total_stock'] as int? ?? 0,
       primaryImage: json['primary_image'] as String?,
+      isWishlisted: json['is_wishlisted'] as bool? ?? false,
     );
   }
 

@@ -112,7 +112,7 @@ class ProfilePage extends StatelessWidget {
                   ProfileMenuTile(
                     icon: Icons.favorite_border_rounded,
                     label: 'Wishlist',
-                    onTap: () {},
+                    onTap: () => Navigator.pushNamed(context, RouteNames.wishlist),
                   ),
                   _divider(),
                   ProfileMenuTile(
@@ -148,13 +148,13 @@ class ProfilePage extends StatelessWidget {
                   ProfileMenuTile(
                     icon: Icons.auto_awesome_outlined,
                     label: 'Saved Outfits',
-                    onTap: () {},
+                    onTap: () => Navigator.pushNamed(context, RouteNames.savedOutfits),
                   ),
                   _divider(),
                   ProfileMenuTile(
                     icon: Icons.camera_alt_outlined,
                     label: 'My Try-On Photos',
-                    onTap: () {},
+                    onTap: () => Navigator.pushNamed(context, RouteNames.savedTryOnPhotos),
                   ),
                 ]),
                 const SizedBox(height: 20),

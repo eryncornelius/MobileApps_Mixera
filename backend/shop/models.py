@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -18,12 +19,21 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     price = models.PositiveIntegerField()
     discount_price = models.PositiveIntegerField(null=True, blank=True)
+    seller = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="listed_products",
+    )
     category = models.ForeignKey(
         Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products'
     )
     color = models.CharField(max_length=50, blank=True)
     is_new = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    moderation_flagged = models.BooleanField(default=False)
+    moderation_note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -47,10 +57,31 @@ class ProductVariant(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
     size = models.CharField(max_length=10, choices=SIZE_CHOICES)
     stock = models.PositiveIntegerField(default=0)
-    sku = models.CharField(max_length=100, unique=True, blank=True)
+    sku = models.CharField(max_length=100, unique=True, blank=True, null=True)
 
     class Meta:
         unique_together = ('product', 'size')
 
     def __str__(self):
         return f"{self.product.name} - {self.size}"
+
+
+class WishlistItem(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wishlist_items",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="wishlist_items",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "product")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user_id}:{self.product_id}"

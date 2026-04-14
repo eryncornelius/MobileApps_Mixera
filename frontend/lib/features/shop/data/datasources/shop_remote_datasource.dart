@@ -1,22 +1,30 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/network/api_base_url.dart';
+import '../../../../core/network/authenticated_dio.dart';
 import '../models/category_model.dart';
 import '../models/product_detail_model.dart';
 import '../models/product_model.dart';
 
+/// Katalog toko: endpoint umumnya publik; Dio tetap sama agar [API_BASE_URL] konsisten.
 class ShopRemoteDatasource {
   ShopRemoteDatasource()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: _base,
+            baseUrl: ApiBaseUrl.module('shop'),
             connectTimeout: const Duration(seconds: 15),
             receiveTimeout: const Duration(seconds: 15),
-            headers: {'Accept': 'application/json'},
+            headers: const {'Accept': 'application/json'},
           ),
+        ),
+        _authDio = createAuthenticatedDio(
+          baseUrl: ApiBaseUrl.module('shop'),
+          connectTimeout: const Duration(seconds: 20),
+          receiveTimeout: const Duration(seconds: 20),
         );
 
   final Dio _dio;
-  static const String _base = 'http://127.0.0.1:8000/api/shop';
+  final Dio _authDio;
 
   String _handleError(DioException e) {
     final data = e.response?.data;
@@ -53,6 +61,30 @@ class ShopRemoteDatasource {
     try {
       final res = await _dio.get('/products/$slug/');
       return ProductDetailModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<List<ProductModel>> getWishlist() async {
+    try {
+      final res = await _authDio.get('/wishlist/');
+      return (res.data as List)
+          .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<bool> toggleWishlist(int productId) async {
+    try {
+      final res = await _authDio.post(
+        '/wishlist/toggle/',
+        data: {'product_id': productId},
+      );
+      final map = Map<String, dynamic>.from(res.data as Map);
+      return map['is_wishlisted'] as bool? ?? false;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

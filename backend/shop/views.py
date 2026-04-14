@@ -1,8 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 
-from .models import Category, Product
+from .models import Category, Product, WishlistItem
 from .serializers import CategorySerializer, ProductListSerializer, ProductDetailSerializer
 
 
@@ -18,7 +19,11 @@ class ProductListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        qs = Product.objects.filter(is_active=True).select_related('category').prefetch_related('images')
+        qs = (
+            Product.objects.filter(is_active=True, moderation_flagged=False)
+            .select_related('category')
+            .prefetch_related('images', 'variants')
+        )
 
         search = request.query_params.get('search')
         if search:
@@ -31,7 +36,7 @@ class ProductListView(APIView):
         if request.query_params.get('is_new') == 'true':
             qs = qs.filter(is_new=True)
 
-        return Response(ProductListSerializer(qs, many=True).data)
+        return Response(ProductListSerializer(qs, many=True, context={"request": request}).data)
 
 
 class ProductDetailView(APIView):
@@ -42,9 +47,49 @@ class ProductDetailView(APIView):
             product = (
                 Product.objects
                 .prefetch_related('images', 'variants')
-                .select_related('category')
-                .get(slug=slug, is_active=True)
+                .select_related('category', 'seller', 'seller__seller_profile')
+                .get(slug=slug, is_active=True, moderation_flagged=False)
             )
         except Product.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=404)
-        return Response(ProductDetailSerializer(product).data)
+        return Response(ProductDetailSerializer(product, context={"request": request}).data)
+
+
+class WishlistListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = (
+            Product.objects.filter(
+                is_active=True,
+                moderation_flagged=False,
+                wishlist_items__user=request.user,
+            )
+            .select_related("category")
+            .prefetch_related("images", "variants")
+            .distinct()
+            .order_by("-wishlist_items__created_at")
+        )
+        return Response(ProductListSerializer(qs, many=True, context={"request": request}).data)
+
+
+class WishlistToggleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        product_id = request.data.get("product_id")
+        if not product_id:
+            return Response({"detail": "product_id wajib diisi."}, status=400)
+        product = Product.objects.filter(
+            pk=product_id,
+            is_active=True,
+            moderation_flagged=False,
+        ).first()
+        if not product:
+            return Response({"detail": "Produk tidak ditemukan."}, status=404)
+        row = WishlistItem.objects.filter(user=request.user, product=product).first()
+        if row:
+            row.delete()
+            return Response({"is_wishlisted": False})
+        WishlistItem.objects.create(user=request.user, product=product)
+        return Response({"is_wishlisted": True})

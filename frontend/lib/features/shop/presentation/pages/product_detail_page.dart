@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/routes/route_names.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../cart/presentation/controllers/cart_controller.dart';
+import '../../../tryon/data/models/tryon_api_models.dart';
+import '../../../tryon/presentation/pages/try_on_result_page.dart';
 import '../../data/models/product_detail_model.dart';
 import '../controllers/shop_controller.dart';
 import '../widgets/product_grid.dart';
@@ -22,6 +25,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   ProductDetailModel? _product;
   bool _loading = true;
   ProductVariantModel? _selectedVariant;
+  bool _wishlistBusy = false;
 
   @override
   void initState() {
@@ -59,20 +63,95 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final cartC = Get.find<CartController>();
     await cartC.addItem(_selectedVariant!.id, 1);
     if (mounted) {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Added to bag!', style: AppTextStyles.description.copyWith(color: Colors.white)),
-          backgroundColor: AppColors.blushPink,
-          duration: const Duration(seconds: 2),
-          action: SnackBarAction(
-            label: 'View Bag',
-            textColor: Colors.white,
-            onPressed: () => Navigator.pushNamed(context, RouteNames.cart),
-          ),
+      Get.snackbar(
+        'Keranjang',
+        'Produk berhasil ditambahkan!',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: AppColors.blushPink,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.all(16),
+        mainButton: TextButton(
+          onPressed: () {
+            Get.closeCurrentSnackbar();
+            Navigator.pushNamed(context, RouteNames.cart);
+          },
+          child: const Text('Lihat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       );
+    }
+  }
+
+  String _normalizeWhatsappPhone(String raw) {
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return '';
+    if (digits.startsWith('0')) return '62${digits.substring(1)}';
+    if (digits.startsWith('62')) return digits;
+    return digits;
+  }
+
+  Future<void> _chatSeller(ProductDetailModel p) async {
+    final phone = _normalizeWhatsappPhone(p.sellerPhone);
+    if (phone.isEmpty) {
+      Get.snackbar(
+        'Chat seller',
+        'Nomor WhatsApp penjual belum tersedia.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    final store = p.sellerStoreName.isNotEmpty ? p.sellerStoreName : 'penjual';
+    final text =
+        'Halo $store, saya ingin tanya detail produk ${p.name} (ID: ${p.id}, slug: ${p.slug}).';
+    final uri = Uri.parse(
+      'https://wa.me/$phone?text=${Uri.encodeComponent(text)}',
+    );
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      Get.snackbar(
+        'Chat seller',
+        'Tidak bisa membuka WhatsApp.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> _toggleWishlist(ProductDetailModel p) async {
+    if (_wishlistBusy) return;
+    setState(() => _wishlistBusy = true);
+    try {
+      final saved = await Get.find<ShopController>().toggleWishlistByProduct(p.id);
+      if (!mounted) return;
+      setState(() {
+        _product = ProductDetailModel(
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          price: p.price,
+          discountPrice: p.discountPrice,
+          categoryName: p.categoryName,
+          categorySlug: p.categorySlug,
+          color: p.color,
+          isNew: p.isNew,
+          isActive: p.isActive,
+          moderationFlagged: p.moderationFlagged,
+          moderationNote: p.moderationNote,
+          totalStock: p.totalStock,
+          primaryImage: p.primaryImage,
+          description: p.description,
+          images: p.images,
+          variants: p.variants,
+          sellerId: p.sellerId,
+          sellerStoreName: p.sellerStoreName,
+          sellerPhone: p.sellerPhone,
+          isWishlisted: saved,
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      Get.snackbar('Wishlist', e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _wishlistBusy = false);
     }
   }
 
@@ -121,7 +200,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           child: _buildSizeSelector(p),
         ),
         SliverToBoxAdapter(
-          child: _buildActionButtons(),
+          child: _buildActionButtons(p),
+        ),
+        SliverToBoxAdapter(
+          child: _buildTryOnCta(p),
         ),
         // Related products
         if (shopC.products.length > 1) ...[
@@ -241,7 +323,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               ],
             ),
           ),
-          const Icon(Icons.favorite_border_rounded, color: AppColors.primaryText, size: 24),
+          GestureDetector(
+            onTap: _wishlistBusy ? null : () => _toggleWishlist(p),
+            child: Icon(
+              p.isWishlisted ? Icons.favorite : Icons.favorite_border_rounded,
+              color: AppColors.blushPink,
+              size: 24,
+            ),
+          ),
         ],
       ),
     );
@@ -343,20 +432,52 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildTryOnCta(ProductDetailModel p) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TryOnResultPage(
+                  sourceType: TryOnSourceKind.shopProduct,
+                  shopProductId: p.id,
+                ),
+              ),
+            );
+          },
+          icon: const Icon(Icons.checkroom_outlined, color: AppColors.blushPink),
+          label: Text(
+            'Virtual try-on',
+            style: AppTextStyles.button.copyWith(color: AppColors.primaryText),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: AppColors.blushPink),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(ProductDetailModel p) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () => _chatSeller(p),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: AppColors.blushPink),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: Text('Chat',
+              child: Text('Chat Penjual',
                   style: AppTextStyles.button.copyWith(color: AppColors.blushPink)),
             ),
           ),
