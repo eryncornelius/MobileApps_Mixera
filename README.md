@@ -1,6 +1,6 @@
 # Mixera
 
-**Mixera** adalah aplikasi mobile fashion e-commerce berbasis AI yang dikembangkan sebagai proyek kolaborasi mahasiswa **Angkatan 25 DBT (Digital Business & Technology) Universitas Prasmul (Prasetiya Mulya)**. Aplikasi ini menggabungkan pengalaman belanja fashion modern dengan fitur kecerdasan buatan untuk membantu pengguna mengeksplorasi gaya berpakaian, mengelola lemari baju digital, serta mencoba pakaian secara virtual sebelum membeli.
+**Mixera** adalah aplikasi mobile fashion e-commerce berbasis AI yang dikembangkan sebagai proyek kolaborasi mahasiswa **Angkatan 24 dan 25 DBT (Digital Business & Technology) Universitas Prasmul (Prasetiya Mulya)**. Aplikasi ini menggabungkan pengalaman belanja fashion modern dengan fitur kecerdasan buatan untuk membantu pengguna mengeksplorasi gaya berpakaian, mengelola lemari baju digital, serta mencoba pakaian secara virtual sebelum membeli.
 
 ---
 
@@ -223,7 +223,7 @@ flutter run
 
 ## Tim
 
-Proyek ini merupakan bagian dari program studi **DBT (Digital Business & Technology) Angkatan 25 — Universitas Prasmul (Prasetiya Mulya)**.
+Proyek ini merupakan bagian dari program studi **DBT (Digital Business & Technology) Angkatan 24(Developer App) Angkatan 25(Designer App) — Universitas Prasmul (Prasetiya Mulya)**.
 
 ---
 
