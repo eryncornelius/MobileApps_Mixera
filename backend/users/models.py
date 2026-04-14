@@ -13,6 +13,12 @@ class User(AbstractUser):
         ('facebook', 'Facebook'),
     )
     email = models.EmailField(unique=True)
+    pending_email = models.EmailField(
+        max_length=254,
+        blank=True,
+        null=True,
+        help_text="Email baru menunggu verifikasi OTP sebelum dipindah ke email.",
+    )
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     auth_provider = models.CharField(
         max_length=20,

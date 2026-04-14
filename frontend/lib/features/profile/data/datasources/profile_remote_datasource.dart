@@ -69,9 +69,45 @@ class ProfileRemoteDatasource {
     try {
       final response = await dio.put(
         '/profile/',
-        data: {'username': username, 'phone_number': phoneNumber},
+        data: {
+          'username': username,
+          'phone_number': phoneNumber,
+        },
       );
 
+      return ProfileModel.fromJson(Map<String, dynamic>.from(response.data));
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<ProfileModel> requestEmailChange(String newEmail) async {
+    try {
+      final response = await dio.post(
+        '/profile/email-change/request/',
+        data: {'new_email': newEmail.trim()},
+      );
+      return ProfileModel.fromJson(Map<String, dynamic>.from(response.data));
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<ProfileModel> confirmEmailChange(String code) async {
+    try {
+      final response = await dio.post(
+        '/profile/email-change/confirm/',
+        data: {'code': code.trim()},
+      );
+      return ProfileModel.fromJson(Map<String, dynamic>.from(response.data));
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<ProfileModel> cancelEmailChange() async {
+    try {
+      final response = await dio.post('/profile/email-change/cancel/');
       return ProfileModel.fromJson(Map<String, dynamic>.from(response.data));
     } on DioException catch (e) {
       throw Exception(_handleError(e));

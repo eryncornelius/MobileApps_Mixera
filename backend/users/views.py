@@ -19,6 +19,7 @@ from .serializers import (
     ForgotPasswordSerializer, ResetPasswordSerializer, CustomTokenObtainPairSerializer, UserMeSerializer, GoogleAuthSerializer,
     FacebookAuthSerializer, ProfileSerializer, UpdateProfileSerializer, ChangePasswordSerializer, AddressSerializer,
     NotificationSettingsSerializer, UserNotificationSerializer, FcmTokenSerializer,
+    EmailChangeRequestSerializer, EmailChangeConfirmSerializer,
 )
 from django.shortcuts import get_object_or_404
 
@@ -328,14 +329,89 @@ class UpdateProfileView(APIView):
         serializer = UpdateProfileSerializer(
             request.user,
             data=request.data,
-            partial=False,
+            partial=True,
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
         response_serializer = ProfileSerializer(request.user)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
-    
+
+
+class EmailChangeRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if (user.auth_provider or "email").lower() != "email":
+            return Response(
+                {"detail": "Akun sosial tidak dapat mengubah email di sini."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ser = EmailChangeRequestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        new_email = ser.validated_data["new_email"].strip().lower()
+        if new_email == user.email:
+            return Response(
+                {"detail": "Email baru sama dengan email saat ini."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
+            return Response(
+                {"detail": "Email sudah digunakan akun lain."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.pending_email = new_email
+        user.save(update_fields=["pending_email"])
+        otp = OTPVerification.generate_otp(user)
+        send_otp_email(new_email, otp.code)
+        return Response(ProfileSerializer(user).data)
+
+
+class EmailChangeConfirmView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if (user.auth_provider or "email").lower() != "email":
+            return Response(
+                {"detail": "Akun sosial tidak dapat mengubah email di sini."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not user.pending_email:
+            return Response(
+                {"detail": "Tidak ada permintaan ubah email. Kirim OTP dulu."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ser = EmailChangeConfirmSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        code = ser.validated_data["code"]
+        otp = OTPVerification.objects.filter(user=user, code=code).order_by("-created_at").first()
+        if not otp or not otp.is_still_valid():
+            return Response(
+                {"detail": "Kode OTP tidak valid atau kedaluwarsa."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        otp.is_used = True
+        otp.save(update_fields=["is_used"])
+        user.email = user.pending_email
+        user.pending_email = None
+        user.is_email_verified = True
+        user.save(update_fields=["email", "pending_email", "is_email_verified"])
+        return Response(ProfileSerializer(user).data)
+
+
+class EmailChangeCancelView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.pending_email:
+            user.pending_email = None
+            user.save(update_fields=["pending_email"])
+        return Response(ProfileSerializer(user).data)
+
+
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 

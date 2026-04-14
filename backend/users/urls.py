@@ -7,6 +7,7 @@ from .views import (
     NotificationSettingsView,
     UserNotificationListView, UserNotificationReadView, UserNotificationUnreadCountView,
     FcmTokenRegisterView,
+    EmailChangeRequestView, EmailChangeConfirmView, EmailChangeCancelView,
 )
 
 urlpatterns = [
@@ -20,6 +21,9 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     path('me/', MeView.as_view(), name='me'),
     path('profile/', UpdateProfileView.as_view(), name='update_profile'),
+    path('profile/email-change/request/', EmailChangeRequestView.as_view(), name='email_change_request'),
+    path('profile/email-change/confirm/', EmailChangeConfirmView.as_view(), name='email_change_confirm'),
+    path('profile/email-change/cancel/', EmailChangeCancelView.as_view(), name='email_change_cancel'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
     path('addresses/', AddressListCreateView.as_view(), name='address_list_create'),
     path('addresses/<int:pk>/', AddressDetailView.as_view(), name='address_detail'),

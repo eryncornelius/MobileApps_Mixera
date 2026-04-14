@@ -46,6 +46,7 @@ class UserMeSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'email',
+            'pending_email',
             'username',
             'phone_number',
             'is_email_verified',
@@ -102,6 +103,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "email",
+            "pending_email",
             "username",
             "phone_number",
             "auth_provider",
@@ -118,6 +120,8 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
+    """Username & telepon; ubah email lewat alur OTP terpisah."""
+
     class Meta:
         model = User
         fields = (
@@ -133,7 +137,15 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError("Username already taken.")
         return value
-    
+
+
+class EmailChangeRequestSerializer(serializers.Serializer):
+    new_email = serializers.EmailField()
+
+
+class EmailChangeConfirmSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=4, min_length=4)
+
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True, validators=[validate_password_strength])

@@ -42,6 +42,10 @@ class ProfileController extends GetxController {
 
   final isChangingPassword = false.obs;
 
+  /// OTP 4 digit untuk konfirmasi ubah email (akun email).
+  final emailChangeOtpController = TextEditingController();
+  final isEmailChangeBusy = false.obs;
+
   final notificationSettings = Rxn<NotificationSettingsModel>();
   final isLoadingNotificationSettings = false.obs;
   final isSavingNotificationSettings = false.obs;
@@ -98,6 +102,109 @@ class ProfileController extends GetxController {
       isSaving.value = false;
     }
   }
+
+  Future<bool> requestEmailChangeOtp() async {
+    final newEmail = emailController.text.trim();
+    if (newEmail.isEmpty) {
+      Get.snackbar('Error', 'Isi email baru terlebih dahulu.');
+      return false;
+    }
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(newEmail)) {
+      Get.snackbar('Error', 'Format email tidak valid.');
+      return false;
+    }
+    final currentLogin = (profile.value?.email ?? '').toLowerCase();
+    if (newEmail.toLowerCase() == currentLogin) {
+      if (profile.value?.pendingEmail != null) {
+        Get.snackbar(
+          'Info',
+          'Gunakan "Kirim ulang OTP" atau isi email baru untuk mengganti tujuan verifikasi.',
+        );
+      } else {
+        Get.snackbar('Error', 'Email baru harus beda dari email login saat ini.');
+      }
+      return false;
+    }
+    isEmailChangeBusy.value = true;
+    try {
+      final updated = await _remote.requestEmailChange(newEmail);
+      profile.value = updated;
+      emailController.text = updated.email;
+      emailChangeOtpController.clear();
+      final sentTo = updated.pendingEmail ?? newEmail;
+      Get.snackbar(
+        'OTP terkirim',
+        'Periksa inbox (dan spam) di $sentTo. Kode berlaku ±5 menit.',
+      );
+      return true;
+    } catch (e) {
+      Get.snackbar('Error', e.toString().replaceAll('Exception: ', ''));
+      return false;
+    } finally {
+      isEmailChangeBusy.value = false;
+    }
+  }
+
+  /// Kirim ulang OTP ke [pendingEmail] tanpa mengubah isi field email.
+  Future<bool> resendEmailChangeOtp() async {
+    final pending = profile.value?.pendingEmail;
+    if (pending == null) return false;
+    isEmailChangeBusy.value = true;
+    try {
+      final updated = await _remote.requestEmailChange(pending);
+      profile.value = updated;
+      emailController.text = updated.email;
+      emailChangeOtpController.clear();
+      Get.snackbar(
+        'OTP terkirim ulang',
+        'Periksa inbox (dan spam) di $pending. Kode berlaku ±5 menit.',
+      );
+      return true;
+    } catch (e) {
+      Get.snackbar('Error', e.toString().replaceAll('Exception: ', ''));
+      return false;
+    } finally {
+      isEmailChangeBusy.value = false;
+    }
+  }
+
+  Future<bool> confirmEmailChangeOtp() async {
+    final code = emailChangeOtpController.text.trim();
+    if (code.length != 4) {
+      Get.snackbar('Error', 'Masukkan 4 digit kode OTP.');
+      return false;
+    }
+    isEmailChangeBusy.value = true;
+    try {
+      final updated = await _remote.confirmEmailChange(code);
+      profile.value = updated;
+      emailController.text = updated.email;
+      emailChangeOtpController.clear();
+      Get.snackbar('Berhasil', 'Email login telah diperbarui.');
+      return true;
+    } catch (e) {
+      Get.snackbar('Error', e.toString().replaceAll('Exception: ', ''));
+      return false;
+    } finally {
+      isEmailChangeBusy.value = false;
+    }
+  }
+
+  Future<void> cancelEmailChangeRequest() async {
+    if (profile.value?.pendingEmail == null) return;
+    isEmailChangeBusy.value = true;
+    try {
+      final updated = await _remote.cancelEmailChange();
+      profile.value = updated;
+      emailChangeOtpController.clear();
+      Get.snackbar('Dibatalkan', 'Permintaan ubah email dibatalkan.');
+    } catch (e) {
+      Get.snackbar('Error', e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      isEmailChangeBusy.value = false;
+    }
+  }
+
   Future<bool> changePassword() async {
   final currentPassword = currentPasswordController.text.trim();
   final newPassword = newPasswordController.text.trim();
@@ -350,6 +457,7 @@ Future<bool> saveNotificationSettings({
   @override
   void onClose() {
     _addressSearchDebounce?.cancel();
+    emailChangeOtpController.dispose();
     usernameController.dispose();
     emailController.dispose();
     phoneController.dispose();

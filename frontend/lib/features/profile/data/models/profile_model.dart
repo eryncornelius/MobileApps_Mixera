@@ -1,6 +1,7 @@
 class ProfileModel {
   final int id;
   final String email;
+  final String? pendingEmail;
   final String username;
   final String? phoneNumber;
   final String authProvider;
@@ -13,6 +14,7 @@ class ProfileModel {
   const ProfileModel({
     required this.id,
     required this.email,
+    this.pendingEmail,
     required this.username,
     required this.phoneNumber,
     required this.authProvider,
@@ -27,6 +29,7 @@ class ProfileModel {
     return ProfileModel(
       id: json['id'] as int,
       email: json['email'] as String? ?? '',
+      pendingEmail: json['pending_email'] as String?,
       username: json['username'] as String? ?? '',
       phoneNumber: json['phone_number'] as String?,
       authProvider: json['auth_provider'] as String? ?? 'email',
@@ -42,9 +45,27 @@ class ProfileModel {
     return {'username': username, 'phone_number': phoneNumber};
   }
 
+  /// Login Google/Facebook — email placeholder backend tidak ditampilkan ke user.
+  bool get isSocialAuth {
+    final p = authProvider.toLowerCase();
+    return p == 'google' || p == 'facebook';
+  }
+
+  String get socialProviderLabel {
+    switch (authProvider.toLowerCase()) {
+      case 'google':
+        return 'Google';
+      case 'facebook':
+        return 'Facebook';
+      default:
+        return 'sosial';
+    }
+  }
+
   ProfileModel copyWith({
     int? id,
     String? email,
+    String? pendingEmail,
     String? username,
     String? phoneNumber,
     String? authProvider,
@@ -57,6 +78,7 @@ class ProfileModel {
     return ProfileModel(
       id: id ?? this.id,
       email: email ?? this.email,
+      pendingEmail: pendingEmail ?? this.pendingEmail,
       username: username ?? this.username,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       authProvider: authProvider ?? this.authProvider,

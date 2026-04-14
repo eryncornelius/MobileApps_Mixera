@@ -5,7 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 import '../../../../app/routes/route_names.dart';
-import '../../../seller/presentation/controllers/seller_controller.dart';
+import '../../../../di/user_session_reset.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../../../core/biometric/biometric_lock_storage.dart';
 import '../../../../core/storage/token_storage.dart';
@@ -163,11 +163,9 @@ class AuthController extends GetxController {
 
   void _navigateHome(BuildContext context, {Map<String, dynamic>? userJson}) {
     final isSeller = userJson != null && userJson['is_seller'] == true;
-    // Drop any previous SellerController so a new session runs onInit/refreshAll
-    // with the JWT just saved (avoids stale seller UI after Google/social login).
-    if (Get.isRegistered<SellerController>()) {
-      Get.delete<SellerController>(force: true);
-    }
+    // Drop per-user GetX controllers so the next shell runs fresh onInit/fetch
+    // (email / Google / Facebook login after another user or logout).
+    resetUserSessionControllers();
     Navigator.pushNamedAndRemoveUntil(
       context,
       isSeller ? RouteNames.sellerShell : RouteNames.mainShell,
@@ -378,9 +376,7 @@ class AuthController extends GetxController {
     try {
       await TokenStorage.clearTokens();
       await BiometricLockStorage.setLockEnabled(false);
-      if (Get.isRegistered<SellerController>()) {
-        Get.delete<SellerController>(force: true);
-      }
+      resetUserSessionControllers();
       await _googleSignIn.signOut();
       await FacebookAuth.instance.logOut();
 
