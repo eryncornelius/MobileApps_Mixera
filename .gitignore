@@ -1,2 +1,4 @@
 *.Ink
-.claude
+
+# Cursor / Claude Code (jangan commit ke repo)
+.claude/
