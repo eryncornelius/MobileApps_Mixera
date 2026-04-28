@@ -17,6 +17,9 @@ class WardrobeController extends GetxController {
   /// Currently selected style/occasion filter. Empty string = no filter.
   final selectedStyleTag = ''.obs;
 
+  /// True when showing only favourite items.
+  final isFavouritesFilter = false.obs;
+
   /// All unique style tags across loaded items, sorted alphabetically.
   List<String> get availableStyleTags {
     final tags = <String>{};
@@ -26,14 +29,26 @@ class WardrobeController extends GetxController {
     return tags.toList()..sort();
   }
 
-  /// Items filtered by [selectedStyleTag]. Returns all items when no filter set.
+  /// Items filtered by [selectedStyleTag] or [isFavouritesFilter].
   List<WardrobeItemApiModel> get filteredCategoryItems {
+    final items = categoryItems.toList();
+    if (isFavouritesFilter.value) {
+      return items.where((i) => i.isFavourite).toList();
+    }
     final tag = selectedStyleTag.value;
-    if (tag.isEmpty) return categoryItems;
-    return categoryItems.where((item) => item.styleTags.contains(tag)).toList();
+    if (tag.isEmpty) return items;
+    return items.where((i) => i.styleTags.contains(tag)).toList();
   }
 
-  void clearStyleTagFilter() => selectedStyleTag.value = '';
+  void clearStyleTagFilter() {
+    selectedStyleTag.value = '';
+    isFavouritesFilter.value = false;
+  }
+
+  void setFavouritesFilter() {
+    selectedStyleTag.value = '';
+    isFavouritesFilter.value = true;
+  }
 
   /// Batch the user can return to from the main wardrobe screen (e.g. after upload).
   final Rxn<UploadBatchDetailModel> pendingReviewBatch = Rxn<UploadBatchDetailModel>();
@@ -65,7 +80,8 @@ class WardrobeController extends GetxController {
   }
 
   Future<void> loadItemsForCategory(String category) async {
-    selectedStyleTag.value = ''; // reset filter on category change
+    selectedStyleTag.value = '';
+    isFavouritesFilter.value = false;
     isLoadingItems.value = true;
     try {
       categoryItems.value = await _ds.getWardrobeItems(category: category);
@@ -133,5 +149,39 @@ class WardrobeController extends GetxController {
 
   void clearPendingReview() {
     pendingReviewBatch.value = null;
+  }
+
+  Future<void> toggleFavourite(WardrobeItemApiModel item) async {
+    final idx = categoryItems.indexWhere((i) => i.id == item.id);
+    if (idx == -1) return;
+    final newVal = !item.isFavourite;
+    categoryItems[idx] = item.copyWith(isFavourite: newVal); // optimistic
+    try {
+      final updated = await _ds.patchItem(item.id, isFavourite: newVal);
+      categoryItems[idx] = updated;
+    } catch (e) {
+      categoryItems[idx] = item; // revert
+      Get.snackbar('Wardrobe', e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> renameItem(WardrobeItemApiModel item, String newName) async {
+    try {
+      final updated = await _ds.patchItem(item.id, name: newName);
+      final idx = categoryItems.indexWhere((i) => i.id == item.id);
+      if (idx != -1) categoryItems[idx] = updated;
+    } catch (e) {
+      Get.snackbar('Wardrobe', e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> deleteItem(int itemId) async {
+    try {
+      await _ds.deleteItem(itemId);
+      categoryItems.removeWhere((i) => i.id == itemId);
+      await loadCategorySummary();
+    } catch (e) {
+      Get.snackbar('Wardrobe', e.toString().replaceAll('Exception: ', ''));
+    }
   }
 }

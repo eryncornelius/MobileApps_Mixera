@@ -41,6 +41,7 @@ class OrderStatusInfo {
           background: AppColors.roseMist,
           icon: Icons.local_shipping_outlined,
         );
+      case 'delivered':
       case 'completed':
         return OrderStatusInfo(
           label: 'Delivered',
@@ -48,9 +49,10 @@ class OrderStatusInfo {
           background: const Color(0xFFEDF7F4),
           icon: Icons.check_circle_rounded,
         );
+      case 'canceled':
       case 'cancelled':
         return OrderStatusInfo(
-          label: 'Cancelled',
+          label: 'Canceled',
           color: AppColors.error,
           background: const Color(0xFFFDF0F0),
           icon: Icons.cancel_rounded,
@@ -75,7 +77,7 @@ extension OrderTabLabel on OrderTab {
       case OrderTab.delivered:
         return 'Delivered';
       case OrderTab.cancelled:
-        return 'Cancelled';
+        return 'Canceled';
     }
   }
 
@@ -84,9 +86,9 @@ extension OrderTabLabel on OrderTab {
       case OrderTab.ongoing:
         return ['pending', 'paid', 'processing', 'shipped'].contains(status);
       case OrderTab.delivered:
-        return status == 'completed';
+        return status == 'delivered' || status == 'completed';
       case OrderTab.cancelled:
-        return status == 'cancelled';
+        return status == 'canceled' || status == 'cancelled';
     }
   }
 }

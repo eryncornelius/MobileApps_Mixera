@@ -86,7 +86,7 @@ class SellerOrderUpdateSerializer(serializers.Serializer):
     shipping_courier = serializers.CharField(max_length=80, required=False, allow_blank=True)
     # Seller may only advance fulfillment: processing is set by payment/checkout, not here.
     status = serializers.ChoiceField(
-        choices=["shipped", "completed"],
+        choices=["shipped", "completed", "delivered"],
         required=False,
     )
 

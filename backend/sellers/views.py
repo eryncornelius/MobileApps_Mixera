@@ -338,13 +338,13 @@ class SellerOrderDetailView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 order.status = "shipped"
-            elif new_st == "completed":
+            elif new_st in ("completed", "delivered"):
                 if order.status != "shipped":
                     return Response(
-                        {"detail": "Can only mark completed from shipped."},
+                        {"detail": "Can only mark delivered from shipped."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                order.status = "completed"
+                order.status = "delivered"
 
         update_fields = []
         _prev_status = order.status  # captured before save for notification trigger
@@ -385,7 +385,7 @@ class SellerDashboardView(APIView):
                 "order_count": qs_orders.count(),
                 "processing_count": qs_orders.filter(status="processing").count(),
                 "shipped_count": qs_orders.filter(status="shipped").count(),
-                "completed_count": qs_orders.filter(status="completed").count(),
+                "completed_count": qs_orders.filter(status="delivered").count(),
                 "low_stock_count": low,
                 "available_balance": seller_available_balance(user),
                 "unread_notifications": SellerNotification.objects.filter(
@@ -546,7 +546,8 @@ def _notify_buyer_order_status(order):
     _STATUS_MESSAGES = {
         "processing": ("Pesanan Sedang Diproses", "Pesanan #{id} sedang disiapkan oleh penjual."),
         "shipped": ("Pesanan Dikirim", "Pesanan #{id} telah dikirim. Cek nomor resi di detail pesanan."),
-        "completed": ("Pesanan Selesai", "Pesanan #{id} telah selesai. Terima kasih sudah berbelanja!"),
+        "delivered": ("Pesanan Selesai", "Pesanan #{id} telah selesai. Terima kasih sudah berbelanja!"),
+        "canceled": ("Pesanan Dibatalkan", "Pesanan #{id} telah dibatalkan."),
     }
     msg = _STATUS_MESSAGES.get(order.status)
     if not msg:

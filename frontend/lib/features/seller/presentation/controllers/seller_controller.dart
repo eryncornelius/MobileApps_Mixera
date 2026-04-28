@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:get/get.dart';
 
 import '../../../shop/data/models/product_detail_model.dart';
@@ -8,7 +10,6 @@ class SellerController extends GetxController {
   final SellerRemoteDatasource _api = SellerRemoteDatasource();
 
   final storeName = ''.obs;
-  /// Kode pos asal pengiriman (5 digit), dari profil seller.
   final shipFromPostalCode = ''.obs;
   final isLoadingMe = false.obs;
 
@@ -21,6 +22,8 @@ class SellerController extends GetxController {
   final orders = <Map<String, dynamic>>[].obs;
   final isLoadingOrders = false.obs;
 
+  final weeklyEarnings = <Map<String, dynamic>>[].obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -28,7 +31,42 @@ class SellerController extends GetxController {
   }
 
   Future<void> refreshAll() async {
-    await Future.wait([loadMe(), loadDashboard(), loadProducts(), loadOrders()]);
+    await Future.wait([
+      loadMe(),
+      loadDashboard(),
+      loadProducts(),
+      loadOrders(),
+    ]);
+    // Chart data loaded separately — non-blocking so it won't stall the main refresh
+    unawaited(loadChartData());
+  }
+
+  Future<void> loadChartData() async {
+    try {
+      final raw = await _api.getFinanceEarnings();
+      final now = DateTime.now();
+      final weekMap = <int, int>{};
+      for (final e in raw) {
+        final createdAt = e['created_at'] as String? ?? '';
+        final dt = DateTime.tryParse(createdAt)?.toLocal();
+        if (dt == null) continue;
+        final diffDays = now.difference(dt).inDays;
+        if (diffDays > 56) continue; // last 8 weeks only
+        final weekIdx = diffDays ~/ 7;
+        final net = (e['net_to_seller'] as num?)?.toInt() ?? 0;
+        weekMap[weekIdx] = (weekMap[weekIdx] ?? 0) + net;
+      }
+      const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+      final result = <Map<String, dynamic>>[];
+      for (int w = 7; w >= 0; w--) {
+        final weekStart = now.subtract(Duration(days: w * 7));
+        final label = '${weekStart.day} ${months[weekStart.month - 1]}';
+        result.add({'label': label, 'amount': weekMap[w] ?? 0});
+      }
+      weeklyEarnings.assignAll(result);
+    } catch (_) {
+      weeklyEarnings.clear();
+    }
   }
 
   Future<void> loadMe() async {
@@ -169,7 +207,7 @@ class SellerController extends GetxController {
   }
 
   Future<void> completeOrder(int orderId) async {
-    await _api.updateOrderShipping(orderId, status: 'completed');
+    await _api.updateOrderShipping(orderId, status: 'delivered');
     await loadOrders();
     await loadDashboard();
   }

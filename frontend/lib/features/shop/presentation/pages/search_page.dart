@@ -7,6 +7,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../controllers/shop_controller.dart';
 import '../widgets/product_grid.dart';
 import '../widgets/search_history_section.dart';
+import '../widgets/shop_search_bar.dart';
 
 const _popularSearches = [
   'Midi skirt', 'Blouse', 'Sweater', 'Cute Tops', 'Dress', 'Floral Dress', 'Crop Tops', 'Pastel', 'Pink',
@@ -79,53 +80,20 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
             const SizedBox(height: 12),
-            // Search field
+            // Search field — single outline (no theme + container double border)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.softWhite,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.blushPink, width: 1.5),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 16),
-                    const Icon(Icons.search_rounded, color: AppColors.blushPink, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        autofocus: true,
-                        textInputAction: TextInputAction.search,
-                        style: AppTextStyles.description
-                            .copyWith(color: AppColors.primaryText),
-                        decoration: InputDecoration(
-                          hintText: 'Search...',
-                          hintStyle: AppTextStyles.description,
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                        onChanged: _onChanged,
-                        onSubmitted: _onSubmit,
-                      ),
-                    ),
-                    if (_hasQuery)
-                      GestureDetector(
-                        onTap: () {
-                          _controller.clear();
-                          setState(() => _hasQuery = false);
-                          shopC.searchResults.clear();
-                        },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Icon(Icons.close_rounded,
-                              size: 18, color: AppColors.secondaryText),
-                        ),
-                      ),
-                  ],
-                ),
+              child: ShopSearchTextField(
+                controller: _controller,
+                autofocus: true,
+                clearVisible: _hasQuery,
+                onClear: () {
+                  _controller.clear();
+                  setState(() => _hasQuery = false);
+                  shopC.searchResults.clear();
+                },
+                onChanged: _onChanged,
+                onSubmitted: _onSubmit,
               ),
             ),
             const SizedBox(height: 16),

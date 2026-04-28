@@ -38,7 +38,15 @@ class AuthController extends GetxController {
         throw Exception('Google ID token tidak ditemukan');
       }
 
-      final result = await _api.loginWithGoogle(idToken);
+      late final Map<String, dynamic> result;
+      try {
+        result = await _api.loginWithGoogle(idToken);
+      } catch (_) {
+        // Clear cached Google credential so the next attempt gets a fresh token
+        // instead of reusing a stale one that may have caused the failure.
+        await _googleSignIn.signOut();
+        rethrow;
+      }
       final access = result['access'] as String?;
       final refresh = result['refresh'] as String?;
 

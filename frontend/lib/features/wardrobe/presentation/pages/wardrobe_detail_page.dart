@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../../app/theme/app_colors.dart';
 import '../../../../../app/theme/app_text_styles.dart';
 import '../../data/models/wardrobe_api_models.dart';
 import '../controllers/wardrobe_controller.dart';
+import 'wardrobe_batch_review_page.dart';
 
 class WardrobeDetailPage extends StatefulWidget {
   final String categorySlug;
@@ -29,6 +31,21 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
   void initState() {
     super.initState();
     _c.loadItemsForCategory(widget.categorySlug);
+  }
+
+  Future<List<String>?> _pickImagePaths(BuildContext context) async {
+    final picker = ImagePicker();
+    final files = await picker.pickMultiImage(imageQuality: 85);
+    if (files.isEmpty) return null;
+    if (files.length > 3) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Maksimal 3 foto per unggahan.')),
+        );
+      }
+      return files.take(3).map((f) => f.path).toList();
+    }
+    return files.map((f) => f.path).toList();
   }
 
   @override
@@ -77,7 +94,14 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                       GestureDetector(
                         onTap: () => _showFilterSheet(context),
                         child: Obx(() {
-                          final active = _c.selectedStyleTag.value.isNotEmpty;
+                          final favActive = _c.isFavouritesFilter.value;
+                          final styleActive = _c.selectedStyleTag.value.isNotEmpty;
+                          final active = favActive || styleActive;
+                          final filterLabel = favActive
+                              ? 'Favourites'
+                              : styleActive
+                                  ? _c.selectedStyleTag.value
+                                  : 'Filter';
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
@@ -103,7 +127,7 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  active ? _c.selectedStyleTag.value : 'Filter',
+                                  active ? filterLabel : 'Filter',
                                   style: AppTextStyles.productName.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: active ? Colors.white : AppColors.primaryText,
@@ -112,7 +136,9 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                                 if (active) ...[
                                   const SizedBox(width: 4),
                                   GestureDetector(
-                                    onTap: _c.clearStyleTagFilter,
+                                    onTap: () {
+                                      _c.clearStyleTagFilter();
+                                    },
                                     child: const Icon(Icons.close, color: Colors.white, size: 14),
                                   ),
                                 ],
@@ -146,11 +172,16 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                     }
                     final items = _c.filteredCategoryItems;
                     if (items.isEmpty) {
+                      final emptyMsg = _c.isFavouritesFilter.value
+                          ? 'Belum ada item favourite di kategori ini.'
+                          : _c.selectedStyleTag.value.isNotEmpty
+                              ? 'Tidak ada item dengan tag "${_c.selectedStyleTag.value}".'
+                              : 'Tidak ada item yang cocok dengan filter.';
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'Tidak ada item dengan tag "${_c.selectedStyleTag.value}".',
+                            emptyMsg,
                             textAlign: TextAlign.center,
                             style: AppTextStyles.description,
                           ),
@@ -167,7 +198,7 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                       ),
                       itemCount: items.length,
                       itemBuilder: (context, index) {
-                        return _buildItemCard(items[index]);
+                        return _buildItemCard(context, items[index]);
                       },
                     );
                   }),
@@ -202,25 +233,54 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.blushPink,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
+                  Obx(() {
+                    final busy = _c.isUploading.value;
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 55,
+                      child: ElevatedButton(
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                final paths = await _pickImagePaths(context);
+                                if (paths == null || paths.isEmpty) return;
+                                final batch = await _c.uploadPhotos(paths);
+                                if (!context.mounted || batch == null) return;
+                                final done = await Navigator.of(context).push<bool>(
+                                  MaterialPageRoute(
+                                    builder: (_) => WardrobeBatchReviewPage(
+                                      batch: batch,
+                                      presetCategorySlug: widget.categorySlug,
+                                    ),
+                                  ),
+                                );
+                                if (done == true && context.mounted) {
+                                  await _c.loadItemsForCategory(widget.categorySlug);
+                                  await _c.loadCategorySummary();
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.blushPink,
+                          disabledBackgroundColor: AppColors.blushPink.withValues(alpha: 0.55),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          elevation: 4,
+                          shadowColor: AppColors.blushPink.withValues(alpha: 0.4),
                         ),
-                        elevation: 4,
-                        shadowColor: AppColors.blushPink.withValues(alpha: 0.4),
+                        child: busy
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text(
+                                '+ Add Clothes',
+                                style: AppTextStyles.button,
+                              ),
                       ),
-                      child: Text(
-                        '+ Add Clothes',
-                        style: AppTextStyles.button,
-                      ),
-                    ),
-                  ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -232,7 +292,6 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
 
   void _showFilterSheet(BuildContext context) {
     final tags = _c.availableStyleTags;
-    if (tags.isEmpty) return;
 
     showModalBottomSheet(
       context: context,
@@ -242,6 +301,7 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
       ),
       builder: (_) => Obx(() {
         final selected = _c.selectedStyleTag.value;
+        final favOnly = _c.isFavouritesFilter.value;
         return Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
           child: Column(
@@ -260,7 +320,7 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Filter by Style',
+                'Filter',
                 style: AppTextStyles.headline.copyWith(fontSize: 18),
               ),
               const SizedBox(height: 16),
@@ -268,23 +328,31 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // "All" chip to clear filter
                   _filterChip(
                     label: 'All',
-                    selected: selected.isEmpty,
+                    selected: !favOnly && selected.isEmpty,
                     onTap: () {
                       _c.clearStyleTagFilter();
                       Navigator.pop(context);
                     },
                   ),
-                  ...tags.map((tag) => _filterChip(
-                    label: tag,
-                    selected: selected == tag,
+                  _filterChip(
+                    label: 'Favourites',
+                    selected: favOnly,
                     onTap: () {
-                      _c.selectedStyleTag.value = tag;
+                      _c.setFavouritesFilter();
                       Navigator.pop(context);
                     },
-                  )),
+                  ),
+                  ...tags.map((tag) => _filterChip(
+                        label: tag,
+                        selected: !favOnly && selected == tag,
+                        onTap: () {
+                          _c.clearStyleTagFilter();
+                          _c.selectedStyleTag.value = tag;
+                          Navigator.pop(context);
+                        },
+                      )),
                 ],
               ),
             ],
@@ -321,7 +389,88 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
     );
   }
 
-  Widget _buildItemCard(WardrobeItemApiModel item) {
+  Future<void> _showRenameDialog(BuildContext context, WardrobeItemApiModel item) async {
+    final initial = item.name.trim().isNotEmpty
+        ? item.name
+        : (item.subcategory.trim().isNotEmpty ? item.subcategory : item.category);
+    final ctrl = TextEditingController(text: initial);
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.softWhite,
+          title: Text('Nama item', style: AppTextStyles.section),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            maxLength: 120,
+            decoration: InputDecoration(
+              hintText: 'Nama panggilan di wardrobe',
+              hintStyle: AppTextStyles.small,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            style: AppTextStyles.description,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Batal', style: AppTextStyles.small.copyWith(color: AppColors.secondaryText)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Simpan', style: AppTextStyles.small.copyWith(color: AppColors.blushPink, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !context.mounted) return;
+      final name = ctrl.text.trim();
+      if (name.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nama tidak boleh kosong.')),
+        );
+        return;
+      }
+      await _c.renameItem(item, name);
+    } finally {
+      // Dispose after the dialog route has unmounted the TextField; otherwise
+      // Framework hits '_dependents.isEmpty' when cancelling (controller vs. listeners).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ctrl.dispose();
+      });
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WardrobeItemApiModel item) async {
+    final title = item.name.trim().isNotEmpty
+        ? item.name
+        : (item.subcategory.trim().isNotEmpty ? item.subcategory : item.category);
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.softWhite,
+        title: Text('Hapus item?', style: AppTextStyles.section),
+        content: Text(
+          'Yakin hapus “$title” dari wardrobe? Tindakan ini tidak bisa dibatalkan.',
+          style: AppTextStyles.description,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Batal', style: AppTextStyles.small.copyWith(color: AppColors.secondaryText)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Hapus', style: AppTextStyles.small.copyWith(color: AppColors.error, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !context.mounted) return;
+    await _c.deleteItem(item.id);
+  }
+
+  Widget _buildItemCard(BuildContext context, WardrobeItemApiModel item) {
     final url = resolveMediaUrl(item.image);
     final title = item.name.trim().isNotEmpty
         ? item.name
@@ -370,14 +519,24 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Icon(
-                  Icons.favorite_border,
-                  color: Colors.grey.shade400,
-                  size: 22,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _c.toggleFavourite(item),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Obx(() {
+                      final cur = _c.categoryItems.firstWhereOrNull((i) => i.id == item.id) ?? item;
+                      return Icon(
+                        cur.isFavourite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: cur.isFavourite ? AppColors.blushPink : Colors.grey.shade400,
+                        size: 22,
+                      );
+                    }),
+                  ),
                 ),
-              )
+              ),
             ],
           ),
           const Spacer(),
@@ -399,20 +558,35 @@ class _WardrobeDetailPageState extends State<WardrobeDetailPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.edit_outlined, size: 16, color: AppColors.blushPink),
-                  const SizedBox(width: 4),
-                  Text('Edit', style: AppTextStyles.small.copyWith(fontWeight: FontWeight.w600)),
-                ],
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showRenameDialog(context, item),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.edit_outlined, size: 16, color: AppColors.blushPink),
+                        const SizedBox(width: 4),
+                        Text('Edit nama', style: AppTextStyles.small.copyWith(fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              Row(
-                children: [
-                  Icon(Icons.delete_outline, size: 18, color: AppColors.blushPink),
-                  const SizedBox(width: 8),
-                  Icon(Icons.copy_outlined, size: 18, color: AppColors.blushPink),
-                ],
-              )
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _confirmDelete(context, item),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.delete_outline, size: 20, color: AppColors.blushPink),
+                  ),
+                ),
+              ),
             ],
           )
         ],

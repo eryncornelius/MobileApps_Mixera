@@ -115,10 +115,11 @@ class DetectedItemCandidateModel {
     );
   }
 
-  /// PATCH `/candidates/` — backend merges any subset of fields; selection-only is enough here.
+  /// PATCH `/candidates/` — backend merges any subset of fields.
   Map<String, dynamic> toPatchEntry() => {
         'id': id,
         'is_selected': isSelected,
+        'category': category,
       };
 }
 
@@ -193,6 +194,7 @@ class WardrobeItemApiModel {
   final String image;
   final String name;
   final String notes;
+  final bool isFavourite;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -205,6 +207,7 @@ class WardrobeItemApiModel {
     required this.image,
     required this.name,
     required this.notes,
+    this.isFavourite = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -220,8 +223,25 @@ class WardrobeItemApiModel {
       image: json['image'] as String? ?? '',
       name: json['name'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
+      isFavourite: json['is_favourite'] as bool? ?? false,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
       updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null,
+    );
+  }
+
+  WardrobeItemApiModel copyWith({String? name, bool? isFavourite}) {
+    return WardrobeItemApiModel(
+      id: id,
+      category: category,
+      subcategory: subcategory,
+      color: color,
+      styleTags: styleTags,
+      image: image,
+      name: name ?? this.name,
+      notes: notes,
+      isFavourite: isFavourite ?? this.isFavourite,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }

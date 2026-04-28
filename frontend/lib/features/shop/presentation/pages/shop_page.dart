@@ -7,6 +7,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../controllers/shop_controller.dart';
 import '../widgets/category_tabs.dart';
 import '../widgets/product_grid.dart';
+import '../widgets/shop_search_bar.dart';
 
 class ShopPage extends StatelessWidget {
   const ShopPage({super.key});
@@ -96,25 +97,8 @@ class ShopPage extends StatelessWidget {
           const SizedBox(height: 2),
           Text('Discover Items you\'ll Love', style: AppTextStyles.description),
           const SizedBox(height: 16),
-          // Search bar (tappable)
-          GestureDetector(
+          ShopSearchBarPlaceholder(
             onTap: () => Navigator.pushNamed(context, RouteNames.shopSearch),
-            child: Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: AppColors.softWhite,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search_rounded, color: AppColors.secondaryText, size: 20),
-                  const SizedBox(width: 10),
-                  Text('Search...', style: AppTextStyles.description),
-                ],
-              ),
-            ),
           ),
         ],
       ),

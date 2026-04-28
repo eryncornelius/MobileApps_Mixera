@@ -10,7 +10,14 @@ import '../controllers/wardrobe_controller.dart';
 class WardrobeBatchReviewPage extends StatefulWidget {
   final UploadBatchDetailModel batch;
 
-  const WardrobeBatchReviewPage({super.key, required this.batch});
+  /// When set (e.g. opened from a category detail screen), all candidates use this slug before confirm.
+  final String? presetCategorySlug;
+
+  const WardrobeBatchReviewPage({
+    super.key,
+    required this.batch,
+    this.presetCategorySlug,
+  });
 
   @override
   State<WardrobeBatchReviewPage> createState() => _WardrobeBatchReviewPageState();
@@ -24,7 +31,12 @@ class _WardrobeBatchReviewPageState extends State<WardrobeBatchReviewPage> {
   @override
   void initState() {
     super.initState();
-    _candidates = widget.batch.allCandidates.toList();
+    var list = widget.batch.allCandidates.toList();
+    final preset = widget.presetCategorySlug;
+    if (preset != null && preset.isNotEmpty) {
+      list = list.map((c) => c.copyWith(category: preset)).toList();
+    }
+    _candidates = list;
     _photoImageById = {for (final p in widget.batch.photos) p.id: p.image};
   }
 

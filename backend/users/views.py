@@ -1,3 +1,4 @@
+import logging
 import requests
 from rest_framework import status, generics
 from rest_framework.response import Response
@@ -7,10 +8,12 @@ from django.contrib.auth import get_user_model
 from django.db import transaction as db_transaction
 from rest_framework.permissions import IsAuthenticated
 from .models import OTPVerification, Address, NotificationSettings, FcmToken, UserNotification
-from django.conf import settings    
+from django.conf import settings
 from google.auth.transport import requests as google_requests
 from google.auth import exceptions as google_auth_exceptions
 from google.oauth2 import id_token
+
+logger = logging.getLogger(__name__)
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .utils import send_otp_email
@@ -40,8 +43,10 @@ class GoogleAuthView(APIView):
                 google_id_token,
                 google_requests.Request(),
                 settings.GOOGLE_OAUTH_CLIENT_ID,
+                clock_skew_in_seconds=10,
             )
-        except (ValueError, google_auth_exceptions.TransportError):
+        except (ValueError, google_auth_exceptions.TransportError) as e:
+            logger.warning("Google token verification failed: %s", e)
             return Response(
                 {"detail": "Invalid Google token."},
                 status=status.HTTP_400_BAD_REQUEST

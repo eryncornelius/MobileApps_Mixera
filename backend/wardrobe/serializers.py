@@ -110,6 +110,7 @@ class WardrobeItemSerializer(serializers.ModelSerializer):
             "image",
             "name",
             "notes",
+            "is_favourite",
             "created_at",
             "updated_at",
         ]

@@ -11,7 +11,7 @@ class MixeraApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: Env.appName,
-      debugShowCheckedModeBanner: Env.isDebug,
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       onGenerateRoute: AppRouter.onGenerateRoute,
       initialRoute: AppRouter.initialRoute,

@@ -63,20 +63,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final cartC = Get.find<CartController>();
     await cartC.addItem(_selectedVariant!.id, 1);
     if (mounted) {
-      Get.snackbar(
-        'Keranjang',
-        'Produk berhasil ditambahkan!',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: AppColors.blushPink,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-        margin: const EdgeInsets.all(16),
-        mainButton: TextButton(
-          onPressed: () {
-            Get.closeCurrentSnackbar();
-            Navigator.pushNamed(context, RouteNames.cart);
-          },
-          child: const Text('Lihat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Produk berhasil ditambahkan!',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppColors.blushPink,
+          duration: const Duration(seconds: 2),
+          margin: const EdgeInsets.all(16),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          action: SnackBarAction(
+            label: 'Lihat',
+            textColor: Colors.white,
+            onPressed: () => Navigator.pushNamed(context, RouteNames.cart),
+          ),
         ),
       );
     }

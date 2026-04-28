@@ -34,6 +34,18 @@ class OrderItemModel {
       );
 }
 
+/// Maps legacy API values to canonical slugs used in the app UI.
+String _normalizeOrderStatus(String raw) {
+  switch (raw) {
+    case 'completed':
+      return 'delivered';
+    case 'cancelled':
+      return 'canceled';
+    default:
+      return raw;
+  }
+}
+
 class OrderModel {
   final int id;
   final String status;
@@ -67,7 +79,7 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
         id: json['id'] as int,
-        status: json['status'] as String,
+        status: _normalizeOrderStatus(json['status'] as String? ?? ''),
         subtotal: json['subtotal'] as int,
         deliveryFee: json['delivery_fee'] as int,
         discountTotal: json['discount_total'] as int,

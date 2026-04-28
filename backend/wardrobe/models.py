@@ -97,6 +97,7 @@ class WardrobeItem(models.Model):
     image = models.ImageField(upload_to="wardrobe/items/%Y/%m/")
     name = models.CharField(max_length=255, blank=True, default="")
     notes = models.TextField(blank=True, default="")
+    is_favourite = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

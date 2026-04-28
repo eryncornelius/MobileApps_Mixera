@@ -389,7 +389,7 @@ class _SellerOrderDetailPageState extends State<SellerOrderDetailPage> {
                               ),
                             if (!canShip && !canComplete && paid)
                               Text(
-                                st == 'completed'
+                                (st == 'delivered' || st == 'completed')
                                     ? 'Pesanan telah selesai.'
                                     : 'Menunggu status yang dapat diperbarui...',
                                 style: AppTextStyles.small,

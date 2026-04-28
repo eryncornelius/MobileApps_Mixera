@@ -108,6 +108,30 @@ class WardrobeRemoteDatasource {
     }
   }
 
+  Future<WardrobeItemApiModel> patchItem(
+    int id, {
+    String? name,
+    bool? isFavourite,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (isFavourite != null) body['is_favourite'] = isFavourite;
+    try {
+      final res = await _dio.patch('/items/$id/', data: body);
+      return WardrobeItemApiModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<void> deleteItem(int id) async {
+    try {
+      await _dio.delete('/items/$id/');
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   Future<List<WardrobeCategorySummaryEntry>> getCategorySummary() async {
     try {
       final res = await _dio.get('/categories/summary/');

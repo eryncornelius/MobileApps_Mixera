@@ -41,12 +41,7 @@ class _MixMatchPageState extends State<MixMatchPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 20, top: 10),
-            child: Icon(Icons.notifications_none, color: AppColors.blushPink, size: 28),
-          ),
-        ],
+        actions: const [],
       ),
       body: RefreshIndicator(
         color: AppColors.blushPink,

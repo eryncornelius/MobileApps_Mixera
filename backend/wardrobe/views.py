@@ -4,6 +4,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from wardrobe.models import WardrobeItem
 from wardrobe.permissions import IsOwner
 from wardrobe.selectors.item_selectors import get_category_summary_for_user, get_items_for_user
 from wardrobe.selectors.upload_selectors import get_batch_for_user
@@ -126,6 +127,38 @@ class WardrobeItemListView(APIView):
         return Response(
             WardrobeItemSerializer(items, many=True, context={"request": request}).data
         )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/wardrobe/items/<id>/   — rename, toggle favourite
+# DELETE /api/wardrobe/items/<id>/  — remove item
+# ---------------------------------------------------------------------------
+
+class WardrobeItemDetailView(APIView):
+    permission_classes = [IsOwner]
+
+    def _get_item(self, item_id: int, user):
+        try:
+            return WardrobeItem.objects.get(pk=item_id, user=user)
+        except WardrobeItem.DoesNotExist:
+            return None
+
+    def patch(self, request, item_id: int):
+        item = self._get_item(item_id, request.user)
+        if item is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = WardrobeItemSerializer(item, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, item_id: int):
+        item = self._get_item(item_id, request.user)
+        if item is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ---------------------------------------------------------------------------

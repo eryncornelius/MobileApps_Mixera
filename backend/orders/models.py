@@ -11,8 +11,8 @@ class Order(models.Model):
         ('paid', 'Paid'),
         ('processing', 'Processing'),
         ('shipped', 'Shipped'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
+        ('delivered', 'Delivered'),
+        ('canceled', 'Canceled'),
     ]
     PAYMENT_METHOD_CHOICES = [
         ('wallet', 'Wallet'),

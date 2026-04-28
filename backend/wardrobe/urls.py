@@ -6,6 +6,7 @@ from wardrobe.views import (
     UploadBatchDetailView,
     UploadBatchListCreateView,
     WardrobeCategorySummaryView,
+    WardrobeItemDetailView,
     WardrobeItemListView,
 )
 
@@ -18,5 +19,6 @@ urlpatterns = [
 
     # Final wardrobe items
     path("items/", WardrobeItemListView.as_view(), name="wardrobe-items"),
+    path("items/<int:item_id>/", WardrobeItemDetailView.as_view(), name="wardrobe-item-detail"),
     path("categories/summary/", WardrobeCategorySummaryView.as_view(), name="wardrobe-categories-summary"),
 ]

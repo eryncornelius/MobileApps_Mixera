@@ -178,8 +178,8 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final messages = {
       OrderTab.ongoing: ('No active orders', 'Your ongoing orders will appear here.'),
-      OrderTab.delivered: ('No delivered orders', 'Completed orders will appear here.'),
-      OrderTab.cancelled: ('No cancelled orders', "You haven't cancelled any orders."),
+      OrderTab.delivered: ('No delivered orders', 'Delivered orders will appear here.'),
+      OrderTab.cancelled: ('No canceled orders', "You don't have any canceled orders."),
     };
     final (title, subtitle) = messages[tab]!;
 
